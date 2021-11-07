@@ -33,7 +33,7 @@ create a blade directly`(Blade. bitmap scale grade)`or with`G`(for Geometric num
 
 `(G blade-or-bitmap scale)`
 
-Multivectors are linear combinations of blades and are the general objects used in GA computations. Multivectors are represented with vectors of blades or vectors of coefficients and blades
+Multivectors are linear combinations of blades and are the general objects used in GA computations. Multivectors are represented with (Clojure) vectors of blades or vectors of coefficients and blades
 
 `[0.3 e0 0.7 e1 3e-7 e2]` is a multivector
 
