@@ -62,7 +62,7 @@ the macro `in-ga` evaluates GA expressions in the context of a given GA
                  
 returns the geometric product `*` of two multivectors in 4d space with a default prefix`e`for the basis elements. `(in-ga prefix p q r body)` evaluates the body in the context of a GA of the specified metric.
 
-The geometric product is anticommutative
+The geometric product is not commutative
 
 ```
 (in-ga 2 0 0 (* e0 e1))
