@@ -9,9 +9,9 @@ This library is a work in progress from my notes taken while learning Geometric 
   ∨ regressive product    
   𝑒 exponential
 ```   
-There are things I like and things I don't like about this code and I will change my mind. The code is unoptimized and experimental, things will move, rename and change representation.
+There are things I like and things I don't like about this code. It is unoptimized, experimental, and will change.
 
-## ∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼
+
 
 ## The Geometric Numbers
 
@@ -40,9 +40,9 @@ Multivectors are linear combinations of blades and are the general objects used 
 `[0.3 e0 0.7 e1 3e-7 e2]` is a multivector
 
 
-Create a GA `(let [ga3d (ga 'e 3 0 0))` for Euclidean 3d space, `(ga prefix p q r)` where `p q r` is the metric signature of the GA, `p` number dimensions squaring to +1, `q` number dimensions squaring to -1 and `r` number dimensions squaring to 0.
+Create an algebra `(let [ga3d (ga 'e 3 0 0))` for Euclidean 3d space, `(ga prefix p q r)` where `p q r` is the metric signature: `p` number dimensions squaring to +1, `q` number dimensions squaring to -1 and `r` number dimensions squaring to 0.
 
-This GA is a map containing the basis elements and operations for computing with multivectors.
+This algebra is a map containing the basis elements and operations for computing with multivectors
 
 `(:basis ga3d)` is a map of basis elements
 
@@ -71,17 +71,19 @@ The geometric product is anticommutative
 => #abl.ajr.Blade{:bitmap 3, :scale -1.0, :grade 2, :basis e01}
 ```   
 
-this is written e₀e₁ meaning the geometric product of e₀ and e₁ and the result is written e₀₁, a bivector spanning e₀ and e₁ and since e₀e₁ = - e₁e₀, e₀₁ = -e₁₀ therefore we'll write basis blades eᵢⱼ where i < j
+this is written e₀e₁ meaning the geometric product of e₀ and e₁ and the result is written e₀₁ which is a bivector spanning e₀ and e₁ and since e₀₁ = -e₁₀ we'll write basis blades eᵢⱼ `(i < j)`
 
 
 
-the geometric product is the sum of the interior and exterior products
+The geometric product is the sum of the interior and exterior products
 
 `(+ (• a b) (∧ a b))`
 
 ```
-(in-ga 3 0 1 (+ (• [5 e12 3 e0] [2 e3 4 e0])
-                (∧ [5 e12 3 e0] [2 e3 4 e0])))
+(in-ga 3 0 1 
+    (let [a [5 e12 3 e0] 
+          b [2 e3 4 e0]] 
+      (+ (• a b) (∧ a b))))
 => [12.0 e_ 20.0 e012 6.0 e03 10.0 e123]
 
 ```
@@ -111,18 +113,23 @@ the exterior product is of higher grade
 ```
 
 
+(give more examples)
 
 
-### GA Input Source / Keyboard Layout
+### Notes on terminology
+
+(notes here)
+
+#### GA Input Source / Keyboard Layout
 
 This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for macOS -- I used Ukele to create one and mapped the fn key to switch sources. For Linux, there'll be a way to do it.
 
 
-### References:
+#### References:
 
 
 Geometric Algebra for Computer Science, Leo Dorst, Daniel Fontijne, Stephen Mann
- — main reference for this code, along with https://geometricalgebra.org and the Java reference implementation
+ — main reference for this code, along with https://geometricalgebra.org, [ganja.js](https://github.com/enkimute/ganja.js) and the Java reference implementation
 
 A Guided Tour to the Plane-Based Geometric Algebra PGA, Leo Dorst
 
@@ -137,7 +144,7 @@ and the bivector discord
 
 #### Acknowledgements
 
-Thanks to Georgiana and Alex for listening to my ideas. Thanks to Dr Geoff James who many years ago gave a presentation on Clifford Algebra which inspired me read GA this year.
+Thanks to Georgiana and Alex for listening to my ideas. Thanks to Dr Geoff James who many years ago gave an inspiring presentation on Clifford Algebra.
 
 
 #### License
