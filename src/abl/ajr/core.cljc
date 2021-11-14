@@ -19,36 +19,20 @@
 (def b⊻ bit-xor)
 
 
-; metric - §19.3
-;
-; k-vectors (weighted sums of k-blades)
-; are represented by vectors of k-blades
-; Or, could add a new type and use protocols
-;
-; ⋀ wedge is also called outer product or exterior product
-; -- although some say that outer and exterior are different
-; because they produce different types of objects;
-; "inner" and "outer" products are associated with
-; vectors and matrices while
-; interior and exterior products are for GA
-; because they produce blades not matrices
-;
-; the geometric product is interior + exterior products
-; exterior product increases grade, interior product decreases grade
-
 (defrecord Blade [bitmap scale grade])
 
-; grade is the number of factors, or elements
-; which have been wedged together - also the
-; dimensionality of the subspace represented
-; by the k-blade/vector
-(defn grade [bits]
+(defn grade
+  "Grade is the number of factors, or elements
+   which have been wedged together - also the
+   dimensionality of the subspace represented
+   by a blade"
+  [bits]
   (Long/bitCount bits))
 
-; make a blade. 'G' is like a circle with an arrow
-; which is like the circular bivector visualization
-; in GA4CS, and 'G' is also for Geometric Number
 (defn G
+  "Make a blade. 'G' is like a circle with an arrow
+   which is like the circular bivector visualization
+   in GA4CS, and 'G' is also for Geometric Number"
   ([basis scale]
     (G {} basis scale))
   ([ga basis scale]
@@ -61,13 +45,16 @@
 (defn edalb [{:keys [scale grade] :as blade}]
   (G blade (* scale (Math/pow -1.0 (* 0.5 grade (dec grade))))))
 
-(defn <- [multivector]
+(defn <-
+  "Returns the reverse of the given multivector"
+  [multivector]
   (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
   (G blade (* scale (Math/pow -1.0 grade))))
 
 (defn <_
+  "Returns the involution of the given multivector"
   ([ga mv] (<_ mv))
   ([multivector]
     (mapv involute multivector)))
@@ -80,27 +67,30 @@
        (throw (ex-info (str "non-invertable multivector "
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv))) {:non-invertable mv})))))
 
-(defn ⌋ [{[s] :basis-by-bitmap basis :basis :as ga} {ag :grade :as a} {bg :grade :as b} {rg :grade :as r}]
-     (if (or (> ag bg) (not (== rg (- bg ag))))
-       (G (basis s) 0) r))
+(defn ⌋
+  "Left contraction"
+  [{[s] :basis-by-bitmap basis :basis :as ga} {ag :grade :as a} {bg :grade :as b} {rg :grade :as r}]
+  (if (or (> ag bg) (not (== rg (- bg ag))))
+    (G (basis s) 0) r))
 
 ; todo check that the bitmaps made by xoring here are < count bases
 ; also this is only good for small numbers of dimensions
 ; soon need to work out how to manage large spaces
 (defn bases-of
-   ([n] (bases-of "e" 0 n))
-   ([prefix n] (bases-of prefix 0 n))
-   ([prefix start n]
-     (reduce
-       (fn [r components]
-         (let [n (symbol (str prefix (string/join "" (map (fn [[i]] (+ start i)) components))))]
-          (assoc r n
-            (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1)
-              :basis n))))
-       {(symbol (str prefix "_")) (assoc (G 0 1) :basis (symbol (str prefix "_")))}
-       (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1)]) (range n))]
-          (mapcat (fn [k] (x/combinations b k))
-            (range 1 (inc n)))))))
+  "Returns basis blades for the given number of dimensions and prefix"
+  ([n] (bases-of "e" 0 n))
+  ([prefix n] (bases-of prefix 0 n))
+  ([prefix start n]
+    (reduce
+     (fn [r components]
+       (let [n (symbol (str prefix (string/join "" (map (fn [[i]] (+ start i)) components))))]
+        (assoc r n
+          (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1)
+            :basis n))))
+     {(symbol (str prefix "_")) (assoc (G 0 1) :basis (symbol (str prefix "_")))}
+     (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1)]) (range n))]
+        (mapcat (fn [k] (x/combinations b k))
+          (range 1 (inc n)))))))
 
 (defn bit-flips [a b]
   (reduce +
@@ -283,7 +273,10 @@
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
-(defn with-specials [{bio :basis-in-order :as ga}]
+; better name
+(defn with-specials
+  "adds the scalar, pseudoscalar & any other special blades"
+  [{bio :basis-in-order :as ga}]
   (let [
          I (first (sort-by :grade > bio))
          I- (edalb I)
@@ -305,6 +298,7 @@
        (into {} (map (juxt first (comp :e.g. meta)) (filter meta (keys ops)))))))
 
 (defn ga
+  "Returns an algebra of the given metric signature and prefix"
   ([p q r]
     (ga "e" p q r))
   ([prefix p q r]
@@ -358,6 +352,7 @@
     (every? (fn [x] (or (bladelike x) (number? x))) f)))
 
 (defmacro in-ga
+  "Evaluate the body in the context of the algebra with the given metric"
   ([prefix p q r body]
     `(in-ga {:prefix ~prefix :base 0 :p ~p :q ~q :r ~r} ~body))
   ([prefix base p q r body]
