@@ -69,11 +69,11 @@ The geometric product is not commutative
 => #abl.ajr.Blade{:bitmap 3, :scale 1.0, :grade 2, :basis e01}
 (in-ga 2 0 0 (* e1 e0))
 => #abl.ajr.Blade{:bitmap 3, :scale -1.0, :grade 2, :basis e01}
-```   
+```
 
 this is written e₀e₁ meaning the geometric product of e₀ and e₁ and the result is written e₀₁ which is a bivector spanning e₀ and e₁ and since e₀₁ = -e₁₀ we'll write basis blades eᵢⱼ `(i < j)`
 
-
+(clarify why the geometric product is not commutative while the exterior product is anticommutative)
 
 The geometric product is the sum of the interior and exterior products
 
