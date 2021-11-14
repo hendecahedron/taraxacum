@@ -11,9 +11,9 @@ This library is a work in progress from my notes taken while learning Geometric 
 ```   
 There are things I like and things I don't like about this code and I will change my mind. The code is unoptimized and experimental, things will move, rename and change representation.
 
-## Usage
+## ∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼
 
-The Geometric Numbers
+## The Geometric Numbers
 
 `e₀` `e₁` `e₂`...`eᵢ`
 
@@ -21,9 +21,9 @@ These are basis elements of a GA and most people tend to use`e`for "element" as 
 
 Basis elements are of type`Blade`which represents oriented volumes of space
 
-`Blade{:bitmap 1, :scale 1.0, :grade 1, :basis e0}` is a basis blade of grade 1
+`Blade{:bitmap 1, :scale 1.0, :grade 1, :basis e0}` is a basis blade of grade 1,or 1-blade
 
-`Blade{:bitmap 5, :scale 1.0, :grade 2, :basis e02}` is a bivector, grade 2
+`Blade{:bitmap 5, :scale 1.0, :grade 2, :basis e02}` is a bivector of grade 2, or 2-blade 
 
 `e_` (or `v_` or `whatever_`) is the scalar basis element of grade 0
 
@@ -31,11 +31,14 @@ the grade is the number of independent bases comprising the blade, the bitmap is
 
 create a blade directly`(Blade. bitmap scale grade)`or with`G`(for Geometric number)
 
+`(require 'abl.ajr.core)`
+
 `(G blade-or-bitmap scale)`
 
 Multivectors are linear combinations of blades and are the general objects used in GA computations. Multivectors are represented with (Clojure) vectors of blades or vectors of coefficients and blades
 
 `[0.3 e0 0.7 e1 3e-7 e2]` is a multivector
+
 
 Create a GA `(let [ga3d (ga 'e 3 0 0))` for Euclidean 3d space, `(ga prefix p q r)` where `p q r` is the metric signature of the GA, `p` number dimensions squaring to +1, `q` number dimensions squaring to -1 and `r` number dimensions squaring to 0.
 
@@ -68,7 +71,47 @@ The geometric product is anticommutative
 => #abl.ajr.Blade{:bitmap 3, :scale -1.0, :grade 2, :basis e01}
 ```   
 
-(explain more operations)
+this is written e₀e₁ meaning the geometric product of e₀ and e₁ and the result is written e₀₁, a bivector spanning e₀ and e₁ and since e₀e₁ = - e₁e₀, e₀₁ = -e₁₀ therefore we'll write basis blades eᵢⱼ where i < j
+
+
+
+the geometric product is the sum of the interior and exterior products
+
+`(+ (• a b) (∧ a b))`
+
+```
+(in-ga 3 0 1 (+ (• [5 e12 3 e0] [2 e3 4 e0])
+                (∧ [5 e12 3 e0] [2 e3 4 e0])))
+=> [12.0 e_ 20.0 e012 6.0 e03 10.0 e123]
+
+```
+or we could use `•∧` which returns the parts of the geometric product separately
+
+```
+(in-ga 3 0 1 (•∧ [5 e12 3 e0] [2 e3 4 e0]))
+=> {:• [12.0 e_], :∧ [20.0 e012 6.0 e03 10.0 e123]}
+
+```
+
+the interior product is of lower grade
+
+```
+(in-ga 3 0 1 (• [5 e12 3 e0] [2 e3 4 e0]))
+=> [12.0 e_]
+
+(in-ga 3 0 0 (• [5 e0] [2 e01]))
+=> [10.0 e1]
+```
+
+the exterior product is of higher grade
+
+```
+(in-ga 3 0 1 (∧ [5 e12 3 e0] [2 e3 4 e0]))
+=> [20.0 e012 6.0 e03 10.0 e123]
+```
+
+
+
 
 ### GA Input Source / Keyboard Layout
 
@@ -90,6 +133,11 @@ Universal Geometric Algebra, David Hestenes
 Geometric Algebra Primer, Jaap Suter
 
 and the bivector discord
+
+
+#### Acknowledgements
+
+Thanks to Georgiana and Alex for listening to my ideas. Thanks to Dr Geoff James who many years ago gave a presentation on Clifford Algebra which inspired me read GA this year.
 
 
 #### License

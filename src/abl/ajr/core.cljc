@@ -18,16 +18,7 @@
 (def b¬ bit-not)
 (def b⊻ bit-xor)
 
-; 2.9.3 - "simple k-vectors" vs sums of simple k-vectors
-; which can't be expressed as simple k-vectors
-; k-blades are k-vectors but not always vice-versa
-;
-; a k-vector is a weighted sum of k-blades (basis blades)
-; k-vectors are just multivectors with all elements of grade k
-;
-; a k-blade is the outer-product of k vectors (not to be confused with k-vectors)
-; k-blades, where k refers to the dimension of the subspace the blade spans. The number k is called the grade of a blade. Scalars are 0-blades, vectors are 1-blades, bivectors are 2-blades, and trivectors are 3-blades.
-;
+
 ; metric - §19.3
 ;
 ; k-vectors (weighted sums of k-blades)
@@ -220,7 +211,7 @@
    ^{:doc "Interior and exterior products"
      :ascii 'ox :short 'ox :verbose 'interior-and-exterior-product :gs '><<>}
    ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
-   (fn ip [{{:syms [* ⌋]} :ops :as ga} ae be]
+   (fn ip [{{:syms [*]} :ops :as ga} ae be]
      (let [ie (vec (for [a ae b be]
                      (let [gp (* a b)]
                        [(⌋ ga a b gp) gp])))
@@ -230,13 +221,13 @@
        {:• int :∧ ext}))
 
    ^{:doc "Exterior product or meet"
-     :ascii 'x :short 'xp :verbose 'exterior-product :gs '<>}
+     :ascii 'x :short 'xp :verbose 'exterior-product}
    ['∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∧ [{{:syms [•∧]} :ops :as ga} a b]
      (:∧ (•∧ a b)))
 
    ^{:doc "Regressive product or join"
-     :ascii 'v :short 'rp :verbose 'regressive-product :gs 'w}
+     :ascii 'v :short 'rp :verbose 'regressive-product}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
@@ -249,9 +240,9 @@
      (simplify ga (into a b)))
 
    ^{:doc "Exponential"
-     :ascii 'e :short 'exp :verbose 'exponential :gs 'e}
+     :ascii 'e :short 'exp :verbose 'exponential}
    ['𝑒 :multivector]
-   (fn exp [{{:syms [• * j]} :ops
+   (fn exp [{{:syms [• *]} :ops
              basis :basis [G_] :basis-by-bitmap :as ga} a]
      (let [[{max :scale}] (• a (<- a))
            scale (loop [s (if (> max 1) (b< 1 1) 1) m max]
@@ -401,7 +392,7 @@
                  :else f))
                body)))))
 
-#_(defmethod print-method Blade [{:keys [basis scale]} writer]
+(defmethod print-method Blade [{:keys [basis scale]} writer]
   (doto writer
     (.write (str scale))
     (.write " ")
