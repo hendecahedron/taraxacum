@@ -467,7 +467,6 @@
 
 (comment
 
-  (into (subvec [1 2 3] 0 1) (subvec [1 2 3] 1 3))
 
 (in-ga 3 0 0
   (*0
