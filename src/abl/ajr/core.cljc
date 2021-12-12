@@ -5,6 +5,7 @@
   (:require
     [clojure.string :as string :refer [starts-with?]]
     [clojure.math.combinatorics :as x]
+    [clojure.java.math :refer :all :exclude [min max]]
     [clojure.walk :as w])
   (:import
      #?(:clj  [clojure.lang PersistentVector]
@@ -59,18 +60,25 @@
           (:basis basis))))))
 
 (defn edalb [{:keys [scale grade] :as blade}]
-  (G blade (* scale (Math/pow -1.0 (* 0.5 grade (dec grade))))))
+  (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
 
 (defn <- [multivector]
   (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
-  (G blade (* scale (Math/pow -1.0 grade))))
+  (G blade (* scale (pow -1.0 grade))))
 
 (defn <_
   ([ga mv] (<_ mv))
   ([multivector]
     (mapv involute multivector)))
+
+(defn negate [{:keys [scale grade] :as blade}]
+  (G blade (* scale -1.0)))
+
+(defn negate-mv
+  ([ga mv] (negate-mv mv))
+  ([mv] (mapv negate mv)))
 
 (defn inverse [{{:syms [• *]} :ops {S 'S} :specials :as ga} mv]
   (let [r (<- mv)
@@ -120,11 +128,18 @@
       (remove (comp zero? :scale)))
     (sort-by :bitmap blades)))
 
+(defn simplify0 [ga blades]
+  (into []
+    (comp
+      (partition-by :bitmap)
+      (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb))))))
+    (sort-by :bitmap blades)))
+
 (defn op-error
   ([op {help :help :as ga} a b]
-   (throw (ex-info (str "operation:  " op "  (" (help op) "), takes 1 argument not 2") {:op op :args [a b]})))
+   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) " & " (type b)) {:op op :args [a b]})))
   ([op {help :help :as ga} a]
-   (throw (ex-info (str "operation:  " op "  (" (help op) "), takes more than 1 argument") {:op op :arg a}))))
+   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a)) {:op op :arg a}))))
 
 (defn compare-G
   ([op]
@@ -137,9 +152,9 @@
         (reduce (partial (ops (compare-G op m a b) (partial op-error op)) (assoc m :op op)) (cons a (cons b more))))))
   ([op ga a b]
     (let [meet (if (and (:bitmap a) (:bitmap b)) (b& (:bitmap a) (:bitmap b)) nil)
-           dependency (if (and meet (zero? meet)) :independent :dependent)
-           ag (if (vector? a) :grades (min 1 (:grade a)))
-           bg (if (vector? b) :grades (min 1 (:grade b)))]
+          dependency (if (and meet (zero? meet)) :independent :dependent)
+          ag (if (vector? a) :grades (min 1 (or (:grade a) 0)))
+          bg (if (vector? b) :grades (min 1 (or (:grade b) 0)))]
        [op dependency (type a) (type b) ag bg]))
    ([op ga a]
     (cond
@@ -153,7 +168,7 @@
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :independent Number Number 0 0]
+   ['* :dependent Double Double 0 0]
    (fn g* [ga a b]
      (* a b))
 
@@ -193,7 +208,12 @@
    ^{:doc "unsimplified Geometric product"}
    ['*' :dependent PersistentVector PersistentVector :grades :grades]
    (fn g*' [{{* '*} :ops :as ga} a b]
-     (for [a a b b] (* a b)))
+     (vec (for [a a b b] (* a b))))
+
+   ^{:doc "simplified Geometric product keep zeros"}
+   ['*0 :dependent PersistentVector PersistentVector :grades :grades]
+   (fn g*0 [{{* '*} :ops :as ga} a b]
+     (simplify0 ga (for [a a b b] (* a b))))
 
    ^{:doc "Hodge dual ⍟ "}
    ['⍟ :multivector]
@@ -264,8 +284,12 @@
      (reduce * [(<- r) mv r]))
 
    ^{:doc "Inverse"}
-   ['- :multivector]
+   ['⁻ :multivector]
    inverse
+
+   ^{:doc "Negate"}
+   ['- :multivector]
+   negate-mv
 
    ^{:doc "Involution"}
    ['_ :multivector]
@@ -283,11 +307,11 @@
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
-(defn with-specials [{bio :basis-in-order :as ga}]
+(defn with-specials [{b :basis-by-grade :as ga}]
   (let [
-         I (first (sort-by :grade > bio))
+         I (peek b)
          I- (edalb I)
-         S (first bio)
+         S (first b)
        ]
     (assoc ga :specials
       {'I I 'I- I- 'S S})))
@@ -317,12 +341,12 @@
              :metric (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))
              :basis bases-of
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases-of) 0)) bases-of)
-             :basis-by-grade (sort compare-blades (vals bases-of))
+             :basis-by-grade (vec (sort compare-blades (vals bases-of)))
              :basis-in-order (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases-of) 0)) bases-of)
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-           ops '[+ * *' • ∼ 𝑒 ⍣ - _ •∧ ∧ ∨ ⍟ op]
+           ops '[+ * • ∼ 𝑒 ⍣ - ⁻ _ *' *0 •∧ ∧ ∨ ⍟ op]
          ]
       (reduce
         (fn [r op]
@@ -371,8 +395,8 @@
            opz (into #{} (filter symbol? (keys ops)))
            o (complement (into #{} (filter symbol? (keys ops))))
            s (filter symbol? (tree-seq seqable? seq body))
-           e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (string/starts-with? (name i) prefix)
-                                                                    (and (namespace i) (string/starts-with? (namespace i) prefix)))) s)))
+           e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (starts-with? (name i) prefix)
+                                                                    (and (namespace i) (starts-with? (namespace i) prefix)))) s)))
            e (mapv (fn [x] (if-let [{b :basis} (bladelike x)] b x)) e)
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
@@ -405,23 +429,90 @@
     (fn [mv]
       (vec (filter
          (fn [{b :bitmap}]
-           ((into (hash-set) (map (fn [i] (int (Math/pow 2 i))) (range f (inc t)))) b)) mv)))
+           ((into (hash-set) (map (fn [i] (int (pow 2 i))) (range f t))) b)) mv)))
       mvs))
 
+(defn normalized [{{:syms [•]} :ops :as ga} mv]
+  (let [[{l :scale}] (• mv mv) d (sqrt l)] (mapv (fn [e] (G e (/ (:scale e) d))) mv)))
+
+(defn imv [mvs]
+  (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
+
 ; (* [-1 h] [1 x] [1 h])
+; GA4CS§7.1
 (defn qr
-  ([{{:syms [+ * • ∧ V ∼ •]} :ops
-    [e_ e0] :basis-in-order :as ga} mvs]
-   (loop [d 0 r mvs q mvs]
-     (if (< d (count (first mvs)))
+  ([{{:syms [+ - ⁻ * *0 • ∧ V ∼ • ⍣]} :ops
+    [e_ e0] :basis-in-order :as ga} [fmv :as mvs]]
+   (loop [n (count fmv) d 0 r (vec mvs) q identity]
+     (if (< d (dec n))
        (let [
-              [v & r :as s] (basis-range d (count (first mvs)) q)
-              a (Math/sqrt (:scale (first (• v v))))
-              ae (multivector ga [a e0])
-              h  (∧ (* v ae) (∼ (+ v ae)))
-              h- (* (multivector ga [-1 e_]) h)]
-          (println h)
-         (recur (inc d)
-           (map (fn [x] (* h- x h)) r)
-           s))
-       {:q q :r r}))))
+              v (r d) ; v is the vector along diagonal
+              a (* -1.0 (signum (:scale (v d)))) ; diagonal
+              bi (+ (normalized ga v) [(G (v d) a)]) ; bisector of unit v and e0
+              h (∼ bi)                            ; reflection hyperplane
+              reflect (fn [x] (*0 (- h) x (⁻ h)))
+             ]
+          (println " dn" d n)
+          (println " r " r)
+          (println " q " q)
+          (println "bi " bi "v" v (normalized ga v))
+          (println "h " h)
+          (println "sv" (subvec r d n) (mapv reflect (subvec r d n)))
+         (recur n (inc d)
+           (into (subvec r 0 d) (mapv reflect (subvec r d n)))
+           (comp q reflect)))
+       {:q (mapv q (imv mvs)) :r r}))))
+
+(comment
+
+(in-ga 3 0 0
+  (*
+    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    [1.0 e0 1.0 e1 2.0 e2]
+    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    ))
+
+  (rest (:args (ex-data *e)))
+
+(in-ga 3 0 0
+    (qr ga
+      [
+        [1 e0 1 e1]
+        [4 e0 5 e1]
+      ]))
+
+(in-ga 3 0 0
+    (qr ga
+      [
+        [1 e0 1 e1 2 e2]
+        [4 e0 5 e1 3 e2]
+        [2 e0 1 e1 4 e2]
+      ]))
+
+(in-ga 3 0 0
+  (reduce *
+    [(negate-mv [1.7071067811865475 e0 0.7071067811865475 e1])
+      [2 e0 2 e1]
+     (- [1.7071067811865475 e0 0.7071067811865475 e1])
+      ]))
+
+(use 'clojure.stacktrace)
+
+(print-cause-trace *e)
+
+(in-ga 3 0 0 (:help ga))
+
+(in-ga 3 0 0 [0 e1 0 e2])
+
+(in-ga 3 0 0 (normalized ga [3 e1 4 e2]))
+
+; stop at 2x2
+
+(in-ga 3 0 0
+  (basis-range 0 3
+   [
+    [1 e0 2 e1 3 e2]
+    [4 e0 5 e1 6 e2]
+    [7 e0 8 e1 9 e2]]))
+
+)

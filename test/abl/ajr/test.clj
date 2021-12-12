@@ -248,6 +248,10 @@ e3/+0.7
 
   (in-ga 5 0 0 (∼ [0 e0 1 e1 2 e2 3 e3 4 e4]))
 
+  (in-ga 3 0 0 (∼ [1 e01]))
+
+  (in-ga 3 0 0 (∧ [1 e01] [1 e02]))
+
 
   (/ 1 (Math/sqrt 2))
 "
@@ -271,6 +275,7 @@ orthonormal basis vectors ei is one where
 
  eᵢ * eⱼ = mᵢ𝛿ᵢⱼ
 
+ P = I - 2nn' where n is normal to hyperplane
 
  x  y  z  w
 
@@ -313,6 +318,17 @@ orthonormal basis vectors ei is one where
   ; a bivector in 3d
   (in-ga 3 0 0 [[0.7 e02] [-0.3 e01]])
 
+
+  (in-ga 3 0 0
+    (qr ga
+      [
+        [1 e0 2 e1 3 e2]
+        [4 e0 5 e1 6 e2]
+        [7 e0 8 e1 9 e2]]))
+
+
+  (in-ga 1 1 0
+    (∨ [e01] [1 e0]))
 
 
 "
