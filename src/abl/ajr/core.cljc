@@ -446,27 +446,31 @@
    (loop [n (count fmv) d 0 r (vec mvs) q identity]
      (if (< d (dec n))
        (let [
-              v (r d) ; v is the vector along diagonal
+              v (into [] (subvec (r d) d n)) ; v is the vector along diagonal
               a (* -1.0 (signum (:scale (v d)))) ; diagonal
-              bi (+ (normalized ga v) [(G (v d) a)]) ; bisector of unit v and e0
+              bi (+ (normalized ga v) [(G (v d) a)]) ; bisector of unit v and ei
               h (∼ bi)                            ; reflection hyperplane
-              reflect (fn [x] (*0 (- h) x (⁻ h)))
+              reflect (fn [x] (* (- h) x (⁻ h)))
+              upto (fn [x] (simplify0 ga (into (subvec x 0 d) (reflect v))))
              ]
-          (println " dn" d n)
+          (println " dn" d n (v d))
           (println " r " r)
           (println " q " q)
           (println "bi " bi "v" v (normalized ga v))
           (println "h " h)
           (println "sv" (subvec r d n) (mapv reflect (subvec r d n)))
          (recur n (inc d)
-           (into (subvec r 0 d) (mapv reflect (subvec r d n)))
+           ; leave previous results
+           (into (subvec r 0 d) (mapv upto (subvec r d n)))
            (comp q reflect)))
        {:q (mapv q (imv mvs)) :r r}))))
 
 (comment
 
+  (into (subvec [1 2 3] 0 1) (subvec [1 2 3] 1 3))
+
 (in-ga 3 0 0
-  (*
+  (*0
     (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
     [1.0 e0 1.0 e1 2.0 e2]
     (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
