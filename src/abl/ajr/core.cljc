@@ -141,6 +141,43 @@
       (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb))))))
     (sort-by :bitmap blades)))
 
+
+(defn basis-range
+  "select blades having basis in range f t"
+  [mv f t]
+  (vec (filter
+         (fn [{b :bitmap}]
+           ((into (hash-set) (map (fn [i] (int (pow 2 i))) (range f t))) b)) mv)))
+
+(defn imv [mvs]
+  (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
+
+
+; upper trianguler matrix is one where the basis vectors
+; are of increasing dimensionality, nth basis vector is n dimensional
+;
+; GA4CS§7.1
+(defn qr
+  ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops
+    [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
+   (loop [n (count fmv) d 0 r mvs q identity qs []]
+     (if (< d (dec n))
+       (let [
+              v (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; vector
+              e [(update (v d) :scale (fn [x] (* -1.0 (signum x))))]
+              bi (+ (⧄ v) e)                         ; bisector of unit v and ei
+              h (∼ bi)                               ; reflection hyperplane
+              qi (fn [x] (*0 (- h) x (⁻ h)))
+              qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qi))
+            ]
+         (recur n (inc d)
+           (mapv (fn [f x] (f x)) qs' r)
+           (comp q qi) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
+           qs'))
+       {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
+        :qf (fn [mvs] (mapv (fn [v] (basis-range (q v) 0 n)) mvs))
+        :r (mapv (fn [v] (basis-range v 0 n)) r)}))))
+
 (defn op-error
   ([op {help :help :as ga} a b]
    (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) " & " (type b)) {:op op :args [a b]})))
@@ -431,178 +468,3 @@
     (.write (str scale))
     (.write " ")
     (.write (str basis))))
-
-(defn basis-range
-  "select blades having basis in range f t"
-  [mv f t]
-  (vec (filter
-         (fn [{b :bitmap}]
-           ((into (hash-set) (map (fn [i] (int (pow 2 i))) (range f t))) b)) mv)))
-
-(defn imv [mvs]
-  (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
-
-(defn qi [{{:syms [*0 - ⁻]} :ops} h x] (*0 (- h) x (⁻ h)))
-
-
-; upper trianguler matrix is one where the basis vectors
-; are of increasing dimensionality, nth basis vector is n dimensional
-;
-; GA4CS§7.1
-(defn qr
-  ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops
-    [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
-   (loop [n (count fmv) d 0 r mvs q identity qs []]
-     (if (< d (dec n))
-       (let [
-              v (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; vector
-              e [(update (v d) :scale (fn [x] (* -1.0 (signum x))))]
-              bi (+ (⧄ v) e)                         ; bisector of unit v and ei
-              h (∼ bi)                               ; reflection hyperplane
-              qi (fn [x] (*0 (- h) x (⁻ h)))
-              qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qi))
-            ]
-         (recur n (inc d)
-           (mapv (fn [f x] (f x)) qs' r)
-           (comp q qi) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
-           qs'))
-       {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
-        :r (mapv (fn [v] (basis-range v 0 n)) r)
-        :a (mapv (fn [v] (basis-range (q v) 0 n)) r)
-        }))))
-
-
-
-(comment
-
-
-
-(in-ga 3 0 0
-    (qr ga
-      [
-        [1 e0 1 e1 2 e2]
-        [2 e0 1 e1 4 e2]
-        [8 e0 3 e1 1 e2]
-      ]))
-
-(in-ga 4 0 0
-  (let [{:keys [q r a]}
-    (qr ga
-      [
-       [8 e0 1 e1 2 e2 5 e3]
-       [1 e0 1 e1 2 e2 5 e3]
-       [2 e0 1 e1 4 e2 7 e3]
-       [8 e0 3 e1 1 e2 2 e3]
-       ])]
-    {
-      :o (for [a q b q] (• a b))
-      :a a
-    }))
-
-(in-ga 4 0 0
-  (• [0.20628424925175784
-      e0
-      -0.30129743086188404
-      e1
-      0.8807710121010885
-      e2
-      -0.3015113445777637
-      e3]
-     [0.5157106231293962
-      e0
-      -0.7532435771547098
-      e1
-      -0.2752409412815898
-      e2
-      0.3015113445777635
-      e3]))
-
-
-[[-9.695359714832659
-      -3.04047097224406E-17
-      -2.7502094729729E-17
-      6.69489673871845E-17]
-     [-3.919400735783415 -3.9545287800622253 0.0 0.0]
-     [-6.188527477552761
-      -5.49867811322938
-      -1.2110601416389974
-      -3.469446951953614E-18]
-     [-8.148227845444469
-      2.259730731464129
-      0.8257228238447701
-      2.41209075662211]]
-
-  ; this projects a vector onto a bivector
-(in-ga 5 0 0
-    (•
-      [1 e0 2 e1 3 e2 4 e3]
-      [1 e12]
-      (- [e12])
-      ))
-
-(in-ga 5 0 0
-  (let [v [1 e0 2 e1 3 e2 4 e3]
-        s (Math/sqrt (:scale (first (• v v))))]
-    (*
-       (- (∼ (+ v [(G e0 s)])))
-       v
-       (⁻ (∼ (+ v [(G e0 s)])))
-       )))
-
-
-(in-ga 3 0 0
-    (qr ga
-      [
-        [1 e0 1 e1]
-        [4 e0 5 e1]
-      ]))
-
-(in-ga 3 0 0 (∼ e_))
-
-(in-ga 3 0 0
-  (*
-    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    [1.0 e0 1.0 e1 2.0 e2]
-    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    ))
-
-(in-ga 3 0 0
-  (*0
-    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    [1.0 e0 1.0 e1 2.0 e2]
-    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    ))
-
-[[-2.4494897427831783
-  -2.956051478157164E-16
-  3.495121951151057E-16]
- [-6.123724356957945 -3.5355339059327386 -2.220446049250313E-16]
- [-4.4907311951024935 0.7071067811865469 0.5773502691896266]]
-
-(in-ga 3 0 0
-  (qi ga
-    (∼ [3 e0 1 e1 1 e2])
-    [3 e0 2 e1 1 e2]))
-
- (map (fn [i] [i (Math/pow 2 i)]) (range 32))
-
-(use 'clojure.stacktrace)
-
-(print-cause-trace *e)
-
-(in-ga 3 0 0 (:help ga))
-
-(in-ga 3 0 0 [0 e1 0 e2])
-
-(in-ga 3 0 0 (normalized ga [3 e1 4 e2]))
-
-; stop at 2x2
-
-(in-ga 3 0 0
-  (basis-range 0 3
-   [
-    [1 e0 2 e1 3 e2]
-    [4 e0 5 e1 6 e2]
-    [7 e0 8 e1 9 e2]]))
-
-)
