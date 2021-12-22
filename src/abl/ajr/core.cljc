@@ -92,6 +92,12 @@
      (if (or (> ag bg) (not (== rg (- bg ag))))
        (G (basis s) 0) r))
 
+(defn normalize [{{:syms [•]} :ops :as ga} mv]
+  (if (seq mv)
+    (let [[{l :scale}] (• mv mv)
+           d (sqrt l)] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
+     mv))
+
 ; todo check that the bitmaps made by xoring here are < count bases
 ; also this is only good for small numbers of dimensions
 ; soon need to work out how to manage large spaces
@@ -215,7 +221,7 @@
    (fn g*0 [{{* '*} :ops :as ga} a b]
      (simplify0 ga (for [a a b b] (* a b))))
 
-   ^{:doc "Hodge dual ⍟ "}
+   ^{:doc "Hodge dual ⍟"}
    ['⍟ :multivector]
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
      (* (<- mv) [I]))
@@ -240,13 +246,13 @@
            ext (simplify ga (remove usi (map peek ie)))]
        {:• int :∧ ext}))
 
-   ^{:doc "Exterior product or meet"
+   ^{:doc "Exterior product or meet, largest common subspace, intersection"
      :ascii 'x :short 'xp :verbose 'exterior-product}
    ['∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∧ [{{:syms [•∧]} :ops :as ga} a b]
      (:∧ (•∧ a b)))
 
-   ^{:doc "Regressive product or join"
+   ^{:doc "Regressive product or join, smallest common superspace, union"
      :ascii 'v :short 'rp :verbose 'regressive-product}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
@@ -304,6 +310,10 @@
    ['∼ Blade]
    (fn dual [{{• '•} :ops {I- 'I-} :specials :as ga} a]
      (• [a] [I-]))
+
+   ^{:doc "Normalize"}
+   ['⧄ :multivector]
+   normalize
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
@@ -346,7 +356,7 @@
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-           ops '[+ * • ∼ 𝑒 ⍣ - ⁻ _ *' *0 •∧ ∧ ∨ ⍟ op]
+           ops '[+ * • ∼ 𝑒 ⍣ - ⁻ _ *' *0 •∧ ∧ ∨ ⍟ ⧄ op]
          ]
       (reduce
         (fn [r op]
@@ -424,58 +434,114 @@
 
 (defn basis-range
   "select blades having basis in range f t"
-  [f t mvs]
-  (map
-    (fn [mv]
-      (vec (filter
+  [mv f t]
+  (vec (filter
          (fn [{b :bitmap}]
            ((into (hash-set) (map (fn [i] (int (pow 2 i))) (range f t))) b)) mv)))
-      mvs))
-
-(defn normalized [{{:syms [•]} :ops :as ga} mv]
-  (let [[{l :scale}] (• mv mv) d (sqrt l)] (mapv (fn [e] (G e (/ (:scale e) d))) mv)))
 
 (defn imv [mvs]
   (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
 
-; (* [-1 h] [1 x] [1 h])
+(defn qi [{{:syms [*0 - ⁻]} :ops} h x] (*0 (- h) x (⁻ h)))
+
+
+; upper trianguler matrix is one where the basis vectors
+; are of increasing dimensionality, nth basis vector is n dimensional
+;
 ; GA4CS§7.1
 (defn qr
-  ([{{:syms [+ - ⁻ * *0 • ∧ V ∼ • ⍣]} :ops
-    [e_ e0] :basis-in-order :as ga} [fmv :as mvs]]
-   (loop [n (count fmv) d 0 r (vec mvs) q identity]
+  ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops
+    [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
+   (loop [n (count fmv) d 0 r mvs q identity qs []]
      (if (< d (dec n))
        (let [
-              v (into [] (subvec (r d) d n)) ; v is the vector along diagonal
-              a (* -1.0 (signum (:scale (v d)))) ; diagonal
-              bi (+ (normalized ga v) [(G (v d) a)]) ; bisector of unit v and ei
-              h (∼ bi)                            ; reflection hyperplane
-              reflect (fn [x] (* (- h) x (⁻ h)))
-              upto (fn [x] (simplify0 ga (into (subvec x 0 d) (reflect v))))
+              v (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; vector
+              c (v d)                                ; basis component
+              s (* -1.0 (signum (:scale c)))         ; reverse sign
+              e [(G c s)]
+              bi (+ (⧄ v) e) ; bisector of unit v and ei
+              h (∼ bi)                               ; reflection hyperplane
+              qi (fn [x] (*0 (- h) x (⁻ h)))
+              qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qi))
              ]
-          (println " dn" d n (v d))
-          (println " r " r)
-          (println " q " q)
-          (println "bi " bi "v" v (normalized ga v))
-          (println "h " h)
-          (println "sv" (subvec r d n) (mapv reflect (subvec r d n)))
          (recur n (inc d)
-           ; leave previous results
-           (into (subvec r 0 d) (mapv upto (subvec r d n)))
-           (comp q reflect)))
-       {:q (mapv q (imv mvs)) :r r}))))
+           (mapv (fn [f x] (f x)) qs' r)
+           (comp qi q) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
+           qs'))
+       {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs)) :r (mapv (fn [v] (basis-range v 0 n)) r)}))))
 
 (comment
 
 
-(in-ga 3 0 0
-  (*0
-    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    [1.0 e0 1.0 e1 2.0 e2]
-    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
-    ))
 
-  (rest (:args (ex-data *e)))
+(in-ga 3 0 0
+    (qr ga
+      [
+        [1 e0 1 e1 2 e2]
+        [2 e0 1 e1 4 e2]
+        [8 e0 3 e1 1 e2]
+      ]))
+
+(in-ga 4 0 0
+  (let [{:keys [q r]} (qr ga
+          [
+           [8 e0 1 e1 2 e2 5 e3]
+           [1 e0 1 e1 2 e2 5 e3]
+           [2 e0 1 e1 4 e2 7 e3]
+           [8 e0 3 e1 1 e2 2 e3]
+           ])]
+       (for [a q b q] (• a b))))
+
+(in-ga 4 0 0
+  (• [0.20628424925175784
+      e0
+      -0.30129743086188404
+      e1
+      0.8807710121010885
+      e2
+      -0.3015113445777637
+      e3]
+     [0.5157106231293962
+      e0
+      -0.7532435771547098
+      e1
+      -0.2752409412815898
+      e2
+      0.3015113445777635
+      e3]))
+
+
+[[-9.695359714832659
+      -3.04047097224406E-17
+      -2.7502094729729E-17
+      6.69489673871845E-17]
+     [-3.919400735783415 -3.9545287800622253 0.0 0.0]
+     [-6.188527477552761
+      -5.49867811322938
+      -1.2110601416389974
+      -3.469446951953614E-18]
+     [-8.148227845444469
+      2.259730731464129
+      0.8257228238447701
+      2.41209075662211]]
+
+  ; this projects a vector onto a bivector
+(in-ga 5 0 0
+    (•
+      [1 e0 2 e1 3 e2 4 e3]
+      [1 e12]
+      (- [e12])
+      ))
+
+(in-ga 5 0 0
+  (let [v [1 e0 2 e1 3 e2 4 e3]
+        s (Math/sqrt (:scale (first (• v v))))]
+    (*
+       (- (∼ (+ v [(G e0 s)])))
+       v
+       (⁻ (∼ (+ v [(G e0 s)])))
+       )))
+
 
 (in-ga 3 0 0
     (qr ga
@@ -484,20 +550,34 @@
         [4 e0 5 e1]
       ]))
 
-(in-ga 3 0 0
-    (qr ga
-      [
-        [1 e0 1 e1 2 e2]
-        [4 e0 5 e1 3 e2]
-        [2 e0 1 e1 4 e2]
-      ]))
+(in-ga 3 0 0 (∼ e_))
 
 (in-ga 3 0 0
-  (reduce *
-    [(negate-mv [1.7071067811865475 e0 0.7071067811865475 e1])
-      [2 e0 2 e1]
-     (- [1.7071067811865475 e0 0.7071067811865475 e1])
-      ]))
+  (*
+    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    [1.0 e0 1.0 e1 2.0 e2]
+    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    ))
+
+(in-ga 3 0 0
+  (*0
+    (- [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    [1.0 e0 1.0 e1 2.0 e2]
+    (⁻ [-0.8164965809277261 e01 0.4082482904638631 e02 0.5917517095361369 e12])
+    ))
+
+[[-2.4494897427831783
+  -2.956051478157164E-16
+  3.495121951151057E-16]
+ [-6.123724356957945 -3.5355339059327386 -2.220446049250313E-16]
+ [-4.4907311951024935 0.7071067811865469 0.5773502691896266]]
+
+(in-ga 3 0 0
+  (qi ga
+    (∼ [3 e0 1 e1 1 e2])
+    [3 e0 2 e1 1 e2]))
+
+ (map (fn [i] [i (Math/pow 2 i)]) (range 32))
 
 (use 'clojure.stacktrace)
 
