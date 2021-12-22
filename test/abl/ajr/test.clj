@@ -364,14 +364,16 @@ orthonormal basis vectors ei is one where
     r))
 
 (in-ga 5 0 0
-  (qr ga
-    [
-     [0 e0 0 e1 0 e2 0 e3 -1 e4]
-     [0 e0 1 e1 0 e2 0 e3 0 e4]
-     [0 e0 0 e1 1 e2 0 e3 0 e4]
-     [0 e0 0 e1 0 e2 1 e3 0 e4]
-     [-1 e0 0 e1 0 e2 0 e3 0 e4]
-     ]))
+  (let [{:keys [q qfn r]}
+    (qr ga
+      [
+       [0 e0 0 e1 0 e2 0 e3 -1 e4]
+       [0 e0 1 e1 0 e2 0 e3  0 e4]
+       [0 e0 0 e1 1 e2 0 e3  0 e4]
+       [0 e0 0 e1 0 e2 1 e3  0 e4]
+       [-1 e0 0 e1 0 e2 0 e3 0 e4]
+       ])]
+    (qfn r)))
 
 
 
