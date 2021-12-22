@@ -456,19 +456,22 @@
      (if (< d (dec n))
        (let [
               v (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; vector
-              c (v d)                                ; basis component
-              s (* -1.0 (signum (:scale c)))         ; reverse sign
-              e [(G c s)]
-              bi (+ (⧄ v) e) ; bisector of unit v and ei
+              e [(update (v d) :scale (fn [x] (* -1.0 (signum x))))]
+              bi (+ (⧄ v) e)                         ; bisector of unit v and ei
               h (∼ bi)                               ; reflection hyperplane
               qi (fn [x] (*0 (- h) x (⁻ h)))
               qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qi))
-             ]
+            ]
          (recur n (inc d)
            (mapv (fn [f x] (f x)) qs' r)
-           (comp qi q) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
+           (comp q qi) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
            qs'))
-       {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs)) :r (mapv (fn [v] (basis-range v 0 n)) r)}))))
+       {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
+        :r (mapv (fn [v] (basis-range v 0 n)) r)
+        :a (mapv (fn [v] (basis-range (q v) 0 n)) r)
+        }))))
+
+
 
 (comment
 
@@ -483,14 +486,18 @@
       ]))
 
 (in-ga 4 0 0
-  (let [{:keys [q r]} (qr ga
-          [
-           [8 e0 1 e1 2 e2 5 e3]
-           [1 e0 1 e1 2 e2 5 e3]
-           [2 e0 1 e1 4 e2 7 e3]
-           [8 e0 3 e1 1 e2 2 e3]
-           ])]
-       (for [a q b q] (• a b))))
+  (let [{:keys [q r a]}
+    (qr ga
+      [
+       [8 e0 1 e1 2 e2 5 e3]
+       [1 e0 1 e1 2 e2 5 e3]
+       [2 e0 1 e1 4 e2 7 e3]
+       [8 e0 3 e1 1 e2 2 e3]
+       ])]
+    {
+      :o (for [a q b q] (• a b))
+      :a a
+    }))
 
 (in-ga 4 0 0
   (• [0.20628424925175784
