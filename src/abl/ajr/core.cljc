@@ -152,10 +152,6 @@
 (defn imv [mvs]
   (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
 
-
-; upper trianguler matrix is one where the basis vectors
-; are of increasing dimensionality, nth basis vector is n dimensional
-;
 ; GA4CS§7.1
 (defn qr
   ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops

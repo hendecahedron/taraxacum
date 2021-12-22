@@ -353,7 +353,7 @@ orthonormal basis vectors ei is one where
     (for [a q b q] (• a b))))
 
 (in-ga 4 0 0
-  (let [{:keys [q qf r]}
+  (let [{:keys [q qfn r]}
     (qr ga
       [
        [8 e0 1 e1 2 e2 5 e3]
@@ -361,7 +361,7 @@ orthonormal basis vectors ei is one where
        [2 e0 1 e1 4 e2 7 e3]
        [8 e0 3 e1 1 e2 2 e3]
        ])]
-    r))
+    (qfn r)))
 
 (in-ga 5 0 0
   (let [{:keys [q qfn r]}
