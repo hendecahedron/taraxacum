@@ -164,8 +164,9 @@
      (if (< d (dec n))
        (let [
               v (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; vector
-              e [(update (v d) :scale (fn [x] (* -1.0 (signum x))))]
+              e [(update (v d) :scale (fn [x] (let [sn (signum x)] (* -1.0 (if (zero? sn) 1.0 sn)))))]
               bi (+ (⧄ v) e)                         ; bisector of unit v and ei
+              bi (if (seq bi) bi e) ; if v is ei then bisector will be empty
               h (∼ bi)                               ; reflection hyperplane
               qi (fn [x] (*0 (- h) x (⁻ h)))
               qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qi))

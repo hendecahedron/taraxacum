@@ -361,7 +361,25 @@ orthonormal basis vectors ei is one where
        [2 e0 1 e1 4 e2 7 e3]
        [8 e0 3 e1 1 e2 2 e3]
        ])]
-    (qf [[0 e0 1 e1 0 e2 0 e3]])))
+    r))
+
+(in-ga 5 0 0
+  (qr ga
+    [
+     [0 e0 0 e1 0 e2 0 e3 -1 e4]
+     [0 e0 1 e1 0 e2 0 e3 0 e4]
+     [0 e0 0 e1 1 e2 0 e3 0 e4]
+     [0 e0 0 e1 0 e2 1 e3 0 e4]
+     [-1 e0 0 e1 0 e2 0 e3 0 e4]
+     ]))
+
+
+
+(neg? -0.0)
+
+(in-ga 3 0 0 (* [] [1 e1]))
+
+(ex-data *e)
 
 (in-ga 4 0 0
   (• [0.20628424925175784
