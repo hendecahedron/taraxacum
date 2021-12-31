@@ -1,7 +1,8 @@
 (ns abl.ajr.test
   (:require
     [clojure.test :refer :all]
-    [abl.ajr.core :refer :all]))
+    [abl.ajr.core :refer :all]
+    [clojure.string :as string]))
 
 (require :reload 'abl.ajr.core)
 
@@ -287,11 +288,11 @@ orthonormal basis vectors ei is one where
 
 "
 
-()
+
 
 
 (let [{{:syms [v_ v3 v02 v01 v12]} :basis
-       [v_ v0 e1 v2] :basis-in-order
+       [v_ v0 e1 v2] :basis-by-grade
        {:syms [* • 𝑒 ∼ ⍣]} :ops :as ga} (ga 'v 2 0 1)
        m (fn [a p] (𝑒 (* [(G v_ a)] p)))
        p (fn [x y] [(G v02 x) (G v01 y) v12])
@@ -364,16 +365,15 @@ orthonormal basis vectors ei is one where
     (qfn r)))
 
 (in-ga 5 0 0
-  (let [{:keys [q qfn r]}
-    (qr ga
-      [
-       [0 e0 0 e1 0 e2 0 e3 -1 e4]
-       [0 e0 1 e1 0 e2 0 e3  0 e4]
-       [0 e0 0 e1 1 e2 0 e3  0 e4]
-       [0 e0 0 e1 0 e2 1 e3  0 e4]
-       [-1 e0 0 e1 0 e2 0 e3 0 e4]
-       ])]
-    (qfn r)))
+  (qr ga
+    [
+     [0 e0 0 e1 0 e2 0 e3 -1 e4]
+     [0 e0 1 e1 0 e2 0 e3 0 e4]
+     [0 e0 0 e1 1 e2 0 e3 0 e4]
+     [0 e0 0 e1 0 e2 1 e3 0 e4]
+     [-1 e0 0 e1 0 e2 0 e3 0 e4]
+     ]))
+
 
 
 
@@ -433,6 +433,7 @@ I(−e2) = −e1
 
 "
 
+(print-cause-trace *e)
 
 ; A multivector is a linear combination of diﬀerent k-blades
 [(G e0 0.1) (G e1 0.2) (G e3 0.7) (G e23 0.6)]
@@ -447,4 +448,150 @@ I(−e2) = −e1
       (- [e12])
       ))
 
+(in-ga 5 0 0
+  (* (- [e234]) [1 e01] (⁻ [e234])))
+
+ (in-ga 5 0 0
+  (* [1 e2] [1 e012]))
+
+ (in-ga 3 0 1 (•∧ [5 e12 3 e0] [2 e3 4 e0]))
+
+ (in-ga 3 0 1 (• [5 e12 3 e0] [2 e3 4 e0]))
+
+  ; reflection in dual hyperplane §7.1
+  ; (* -h x ⁻h)
+
+  (def t1
+    (in-ga 4 0 0
+       (let
+         [v [
+             [1.000000 1.000000 -1.000000]
+             [1.000000 -1.000000 1.000000]
+             [-1.000000 -1.000000 -1.000000]
+             [-1.000000 1.000000 1.000000]]
+          f (map (partial map (comp (fn [[x y z]] [(G e0 x) (G e1 y) (G e2 z) e3]) v))
+              [
+               [2 1 3]
+               [2 3 0]
+               [3 1 0]
+               [0 1 2]])
+          f' (map (fn [face] {:points face :face (apply ∧ face)}) f)]
+         (cons {:b' (first f')}
+           (for [{fa :face :as a} [(first f')] {fb :face :as b} (rest f')]
+              (let [h (∼ (+ (∼ fa) (∼ fb)))
+                    reflect (fn [h x] (* (- h) x (⁻ h)))
+                    T (fn [a b] (∼ (• (∼ b) (<- a))))
+                    ]
+                {:a a :b b
+                 :a' {:face (reflect (T fa fb) fa)
+                      :points (mapv (fn [p] (reflect (T fa fb) p)) (:points a))}
+                 :b' {:face (reflect (T fb fa) fb)
+                      :points (mapv (fn [p] (reflect (T fb fa) p)) (:points b))}}))))))
+
+  t1
+
+
+
+
+  (in-ga 4 0 0
+    (let [r (fn [h x] (* (- h) x (⁻ h)))
+          y' [4.0 e012 4.0 e013 4.0 e023 -4.0 e123]
+          y  (∼ y')
+          x' [4.0 e012 -4.0 e013 4.0 e023 4.0 e123]
+          x (∼ x')
+          ;x [e0 e3]
+          b (+ x (- y))
+          h (∼ b)
+          ]
+      [x h (∼ (r h x'))]))
+
+
+  (in-ga 4 0 0
+    (let [r (fn [h x] (* (- h) x (⁻ h)))]
+      (r [8.0 e02 -8.0 e12 8.0 e23] [4.0 e012 4.0 e013 -4.0 e023 4.0 e123])
+      (∼ (• (∼ [4.0 e012 4.0 e013 -4.0 e023 4.0 e123]) (<- [4.0 e012 4.0 e013 4.0 e023 -4.0 e123])))
+      ))
+
+  (Math/sqrt 4096)
+
+  (require '[clojure.java.io :as io])
+
+  (let [vi (into {} (map vector (distinct (mapcat (comp :points :b') t1)) (range)))
+        f (map (fn [x] (map (comp inc vi) (get-in x [:b' :points]))) t1)
+       ]
+    (with-open [w (io/writer "./resources/tetrahedron1.obj")]
+      (.write w (str "o tetranet" \newline))
+      (doseq [v (keys vi)]
+        (.write w (str "v " (string/join " " (map :scale (take 3 ((fn [ps] (let [w (/ 1 (:scale (peek ps)))] (mapv (fn [b] (G b (* w (:scale b)))) ps))) v)))) \newline)))
+      (doseq [ff f]
+        (.write w (str "f " (string/join " " ff) \newline)))))
+
+
+  (let [{{:syms [e0 e1 e2]} :basis {:syms [* ∧ + - ⁻]} :ops} (ga 3 0 1)
+        tet (->>
+      '(((-2.0 0.0 -2.0) (2.0 -2.0 0.0) (0.0 2.0 2.0))
+         ((0.0 -2.0 -2.0) (-2.0 0.0 2.0) (2.0 2.0 0.0))
+         ((-2.0 2.0 0.0) (0.0 -2.0 2.0) (2.0 0.0 -2.0))
+         ((0.0 2.0 -2.0) (2.0 0.0 2.0) (-2.0 -2.0 0.0)))
+      (map (fn [t]
+         (map (fn [v] (mapv (fn [sv bv] (G bv sv)) v [e0 e1 e2])) t)))
+      (map (fn [[a b c]] [(∧ a b) [a b c]])))]
+    (for [[ap at :as a] tet [bp bt :as b] tet :when (not= a b)]
+      (let [h (+ ap (- bp))]
+        {:h h :a ap :b bp :b' (* (- h) bp (⁻ h))
+        :ae at :be bt :be' (map (fn [edge] (* (- h) edge (⁻ h))) bt)})))
+
+  ; points in projective R3
+  (let [{{:syms [e0 e1 e2 e3]} :basis {:syms [* ∧ + - ⁻]} :ops} (ga 3 0 1)
+        tet (->>
+      '(([-1.0 -1.0 -1.0] [1.0 -1.0 1.0] [-1.0 1.0 1.0])
+         ([-1.0 -1.0 -1.0] [-1.0 1.0 1.0] [1.0 1.0 -1.0])
+         ([-1.0 1.0 1.0] [1.0 -1.0 1.0] [1.0 1.0 -1.0])
+         ([1.0 1.0 -1.0] [1.0 -1.0 1.0] [-1.0 -1.0 -1.0]))
+      (map (fn [triangle]
+         (map (fn [v] (mapv (fn [sv bv] (G bv sv)) (conj v 1) [e0 e1 e2 e3])) triangle))))]
+    tet)
+
+(in-ga 3 0 1
+  (∧ [-1.0 e0 -1.0 e1 -1.0 e2 1.0 e3]
+     [1.0 e0 -1.0 e1 1.0 e2 1.0 e3]
+     [-1.0 e0 1.0 e1 1.0 e2 1.0 e3]))
+
+
+; in projective space, the point at the intersection of
+; the hyperplanes defined by e0,e1 & e2 is e3 (the dual of e012)
+; which is the origin in projective space
+(in-ga 4 0 0
+  (∼ (∧ [e0] [e1] [e2])))
+
+'([4.0 e01 4.0 e02 -4.0 e12]
+ [-4.0 e01 -4.0 e02 -4.0 e12]
+ [4.0 e01 -4.0 e02 4.0 e12]
+ [-4.0 e01 4.0 e02 4.0 e12])
+
+ (in-ga 2 0 1
+   (for [a basis-by-grade b basis-by-grade]
+     [a b (* a b)]))
+
+ (in-ga 3 0 0
+   (* [e12] [e012]))
+
+(defn intersect-lines [{{:syms [∼ • ∧]} :ops :as ga} a b]
+  (• (∼ a) b))
+
+
+ (in-ga 3 0 0
+   (• (∼ (∧ [2 e0 0 e1 1 e2] [2 e0 4 e1 1 e2]))
+      (∧ [0 e0 2 e1 1 e2] [4 e0 2 e1 1 e2])))
+
+
+
+  ; 1blade 2blade orthogonal 1blade
+  [1.0 e0 1.0 e01 1.0 e1]
+
+  ; 1blade 3blade orthogonal 2blade
+  [1.0 e0 1.0 e012 1.0 e12]
+
+  ; 3blade 1blade othogonal 2blade
+  [1.0 e012 1.0 e0 1.0 e12]
 )

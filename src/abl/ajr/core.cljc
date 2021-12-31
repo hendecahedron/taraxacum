@@ -88,14 +88,10 @@
        (throw (ex-info (str "non-invertable multivector "
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv))) {:non-invertable mv})))))
 
-(defn ⌋ [{[s] :basis-by-bitmap basis :basis :as ga} {ag :grade :as a} {bg :grade :as b} {rg :grade :as r}]
-     (if (or (> ag bg) (not (== rg (- bg ag))))
-       (G (basis s) 0) r))
-
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
     (let [[{l :scale}] (• mv mv)
-           d (sqrt l)] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
+           d (sqrt (abs l))] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
      mv))
 
 ; todo check that the bitmaps made by xoring here are < count bases
@@ -141,6 +137,33 @@
       (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb))))))
     (sort-by :bitmap blades)))
 
+(defn <> [r mv]
+  [((zipmap (map :grade mv) mv) r)])
+
+(defn ⌋ [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (simplify ga
+    (map
+       (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
+         (if (== g (- bg ag)) p (G e_ 0)))
+       (for [{ag :grade :as a} mva {bg :grade :as b} mvb]
+         [a b (* a b)]))))
+
+; left contraction or inner product
+(defn ⌋• [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (simplify ga
+    (map
+       (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
+         (if (== g (- bg ag)) p (G e_ 0)))
+       (for [{ag :grade :as a} mva {bg :grade :as b} mvb :when (and (> ag 0) (> bg 0))]
+         [a b (* a b)]))))
+
+(defn ⌋' [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (mapv peek
+    (filter
+       (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
+         (== g (- bg ag)))
+       (for [{ag :grade :as a} mva {bg :grade :as b} mvb :when (not= ag bg)]
+         [a b (* a b)]))))
 
 (defn basis-range
   "select blades having basis in range f t"
@@ -239,6 +262,11 @@
            (recur (inc i) (b> m 1)
              (if (== 1 (b& m 1)) (* s (metric i)) s))))))
 
+   ^{:doc "raw Geometric product"}
+   ['*'' :dependent PersistentVector PersistentVector :grades :grades]
+   (fn g*'' [{{* '*} :ops :as ga} mva mvb]
+     (for [a mva b mvb] [a b (* a b)]))
+
    ; see 22.3.1 for future optimizations
    ^{:doc "Geometric product" :e.g. '(* [1 v1 2 v2] [3 v0 4 v2])}
    ['* :dependent PersistentVector PersistentVector :grades :grades]
@@ -260,25 +288,26 @@
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
      (* (<- mv) [I]))
 
+   ^{:doc "Interior and exterior products"
+     :ascii 'ox :short 'ox :verbose 'interior-and-exterior-product}
+   ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
+   (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
+     (let [gp (*'' mva mvb)
+           {int true ext false} (group-by (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag))) gp)
+           ]
+       {:• (simplify ga (map peek int)) :∧ (simplify ga (map peek ext))}))
+
+   ^{:doc "Interior product"
+     :ascii 'o :short 'ip :verbose 'interior-product :gs '><}
+   ['•' :dependent PersistentVector PersistentVector :grades :grades]
+   (fn ip [{{:syms [•∧]} :ops :as ga} a b]
+     (:• (•∧ a b)))
+
    ^{:doc "Interior product"
      :ascii 'o :short 'ip :verbose 'interior-product :gs '><}
    ['• :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*]} :ops :as ga} a b]
-     (simplify ga
-       (for [a a b b]
-         (⌋ ga a b (* a b)))))
-
-   ^{:doc "Interior and exterior products"
-     :ascii 'ox :short 'ox :verbose 'interior-and-exterior-product :gs '><<>}
-   ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
-   (fn ip [{{:syms [*]} :ops :as ga} ae be]
-     (let [ie (vec (for [a ae b be]
-                     (let [gp (* a b)]
-                       [(⌋ ga a b gp) gp])))
-           usi (into #{} (map first ie))
-           int (simplify ga usi)
-           ext (simplify ga (remove usi (map peek ie)))]
-       {:• int :∧ ext}))
+     (⌋• ga a b))
 
    ^{:doc "Exterior product or meet, largest common subspace, intersection"
      :ascii 'x :short 'xp :verbose 'exterior-product}
@@ -320,7 +349,7 @@
 
    ^{:doc "Sandwich product"}
    ['⍣ :dependent PersistentVector PersistentVector :grades :grades]
-   (fn |s| [{{* '*} :ops :as ga} r mv]
+   (fn |*| [{{* '*} :ops :as ga} r mv]
      (reduce * [(<- r) mv r]))
 
    ^{:doc "Inverse"}
@@ -390,7 +419,7 @@
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-           ops '[+ * • ∼ 𝑒 ⍣ - ⁻ _ *' *0 •∧ ∧ ∨ ⍟ ⧄ op]
+           ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ⍟ ⧄ op]
          ]
       (reduce
         (fn [r op]
@@ -423,7 +452,7 @@
 
 (defn multivector1? [f]
   (and (list? f)
-    (every? (fn [x] (or (bladelike x) (number? x))) f)))
+    (every? (fn [x] (bladelike x)) f)))
 
 (defmacro in-ga
   ([prefix p q r body]
@@ -445,6 +474,7 @@
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~(vec (filter symbol? (keys ops)))} :ops
+               ~'basis-by-grade :basis-by-grade ~'basis :basis
                {:syms ~(vec (keys specials))} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :metric ~metric})]
           ~(w/postwalk
              (fn [f]
