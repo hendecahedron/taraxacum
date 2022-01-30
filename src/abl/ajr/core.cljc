@@ -59,6 +59,12 @@
         (or (get-in ga [:basis-by-bitmap b])
           (:basis basis))))))
 
+(defn multivector [{basis :basis :as ga} elements]
+  (mapv
+    (fn [[co bb]]
+      (G (get basis bb bb) co))
+    (partition 2 elements)))
+
 (defn edalb [{:keys [scale grade] :as blade}]
   (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
 
@@ -76,6 +82,7 @@
 (defn negate [{:keys [scale grade] :as blade}]
   (G blade (* scale -1.0)))
 
+; also called conjugation
 (defn negate-mv
   ([ga mv] (negate-mv mv))
   ([mv] (mapv negate mv)))
@@ -85,14 +92,23 @@
         [{s :scale}] (• r r)]
      (if s
        (* r [(G S (/ 1.0 s))])
-       (throw (ex-info (str "non-invertable multivector "
-                         (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv))) {:non-invertable mv})))))
+       (throw (ex-info (str "non-invertable multivector ["
+                         (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
 
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
     (let [[{l :scale}] (• mv mv)
-           d (sqrt (abs l))] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
+           d (if l (sqrt (abs l)) 1)] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
      mv))
+
+(defn as [bases-map f]
+  (w/postwalk
+    (fn [x]
+      (if (:basis x)
+       (update x :basis
+         (fn [n]
+           (symbol (apply str (cons (bases-map (first (name n))) (sort (map bases-map (rest (name n)))))))))
+        x)) f))
 
 ; todo check that the bitmaps made by xoring here are < count bases
 ; also this is only good for small numbers of dimensions
@@ -122,38 +138,68 @@
 (defn canonical-order [a b]
   (if (== 0 (b& (bit-flips a b) 1)) +1.0 -1.0))
 
+(defn consolidate-blades [ga]
+  (comp
+    (partition-by :bitmap)
+    (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb)))))))
+
+(defn consolidate&remove0s [ga]
+  (comp
+    (consolidate-blades ga)
+    (remove (comp zero? :scale))))
+
+(defn simplify- [xf blades]
+  (into [] xf (sort-by :bitmap blades)))
+
 (defn simplify [ga blades]
-  (into []
-    (comp
-      (partition-by :bitmap)
-      (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb)))))
-      (remove (comp zero? :scale)))
-    (sort-by :bitmap blades)))
+  (simplify- (consolidate&remove0s ga) blades))
 
 (defn simplify0 [ga blades]
-  (into []
+  (simplify- (consolidate-blades ga) blades))
+
+(defn <>
+  "return the grade r part of mv"
+  [mv]
+  [(into {} (map (juxt :grade identity) mv))])
+
+(defn <>r
+  "return the grade r part of mv"
+  [r mv]
+  [((<> mv) r)])
+
+(defn **
+  {:doc ""}
+  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (for [a mva b mvb]
+    [a b (* a b)]))
+
+(defn ⌋
+  {:doc "Left contraction" :ref "§2.2.4 eq 2.6 IPOGA"}
+  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (simplify-
     (comp
-      (partition-by :bitmap)
-      (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb))))))
-    (sort-by :bitmap blades)))
+      (filter (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]] (== g (- bg ag))))
+      (map peek)
+      (consolidate&remove0s ga)
+      )
+    (** ga mva mvb)))
 
-(defn <> [r mv]
-  [((zipmap (map :grade mv) mv) r)])
+(defn ⌊
+  {:doc "Right contraction" :ref "§2.2.4 eq 2.7 IPOGA"}
+  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  (simplify-
+    (comp
+      (filter (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]] (== g (- ag bg))))
+      (map peek)
+      (consolidate&remove0s ga))
+    (** ga mva mvb)))
 
-(defn ⌋ [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
-  (simplify ga
-    (map
-       (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
-         (if (== g (- bg ag)) p (G e_ 0)))
-       (for [{ag :grade :as a} mva {bg :grade :as b} mvb]
-         [a b (* a b)]))))
-
-; left contraction or inner product
+; left contraction or inner product §3.5.3
 (defn ⌋• [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
   (simplify ga
     (map
        (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
-         (if (== g (- bg ag)) p (G e_ 0)))
+         (if (== g (Math/abs (- bg ag))) p (G e_ 0)))
        (for [{ag :grade :as a} mva {bg :grade :as b} mvb :when (and (> ag 0) (> bg 0))]
          [a b (* a b)]))))
 
@@ -166,7 +212,7 @@
          [a b (* a b)]))))
 
 (defn basis-range
-  "select blades having basis in range f t"
+  "select blades having basis in range f t "
   [mv f t]
   (vec (filter
          (fn [{b :bitmap}]
@@ -192,17 +238,28 @@
             ]
          (recur n (inc d)
            (mapv (fn [f x] (f x)) qs' r)
-           (comp q qd) ; check if there's a way to compose hyperplane reflections directly, i.e. compose into one reflection
+           (comp q qd) ; use associativity of sandwich product to compose these
            qs'))
        {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
         :qfn (fn [mvs] (mapv (fn [v] (basis-range (q v) 0 n)) mvs))
         :r (mapv (fn [v] (basis-range v 0 n)) r)}))))
 
+(defn eigendecompose
+  ([{mm :metric-mvs mmga :mmga :as ga}]
+    (eigendecompose mmga mm))
+  ([ga mvs]
+    (eigendecompose ga (qr ga mvs) mvs))
+  ([ga {:keys [q r]} mvs]
+   {
+    :eigenvectors q
+    :eigenvalues (vec (map-indexed (fn [i mv] (mv i)) r))
+    }))
+
 (defn op-error
   ([op {help :help :as ga} a b]
    (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) " & " (type b)) {:op op :args [a b]})))
   ([op {help :help :as ga} a]
-   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a)) {:op op :arg a}))))
+   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) a) {:op op :arg a}))))
 
 (defn compare-G
   ([op]
@@ -316,6 +373,7 @@
      (:∧ (•∧ a b)))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
+     :note "Gunn arXiv:1501.06511v8 §3.1 "
      :ascii 'v :short 'rp :verbose 'regressive-product}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
@@ -366,13 +424,14 @@
 
    ^{:doc "Dual"}
    ['∼ :multivector]
-   (fn dual [{{• '•} :ops {I- 'I-} :specials :as ga} a]
-     (• a [I-]))
+   (fn dual [{{• '•} :ops {I 'I I- 'I-} :specials :as ga} a]
+     (⌋ ga a [I]))
 
+   ; §3.5.3 GA4CS
    ^{:doc "Dual"}
    ['∼ Blade]
-   (fn dual [{{• '•} :ops {I- 'I-} :specials :as ga} a]
-     (• [a] [I-]))
+   (fn dual [{{⌋ '⌋ • '•} :ops {I 'I I- 'I-} :specials :as ga} a]
+     (⌋ ga [a] [I]))
 
    ^{:doc "Normalize"}
    ['⧄ :multivector]
@@ -401,6 +460,12 @@
     (assoc :examples
        (into {} (map (juxt first (comp :e.g. meta)) (filter meta (keys ops)))))))
 
+(defn with-eigendecomposition [{mm :metric-mvs :as ga}]
+  (if mm
+    (let [{:keys [eigenvalues eigenvectors]} (eigendecompose ga)]
+       (assoc ga :eigenvalues eigenvalues :eigenvectors eigenvectors))
+     ga))
+
 (defn ga
   ([p q r]
     (ga "e" p q r))
@@ -408,10 +473,14 @@
     (ga {:prefix prefix :p p :q q :r r}))
   ([prefix base p q r]
     (ga {:prefix prefix :base base :p p :q q :r r}))
-  ([{:keys [prefix base p q r pm qm rm md] :or {base 0 pm 1 qm -1 rm 0}}]
-    (let [bases-of (bases-of prefix base (+ p q r))
+  ([{:keys [prefix base p q r pm qm rm md mm mmga] :or {base 0 pm 1 qm -1 rm 0}}]
+    (let [d (+ p q r)
+          bases-of (bases-of prefix base d)
+          md (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))
           m {
-             :metric (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))
+             :metric md
+             :metric-mvs mm
+             :mmga mmga
              :basis bases-of
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases-of) 0)) bases-of)
              :basis-by-grade (vec (sort compare-blades (vals bases-of)))
@@ -425,16 +494,10 @@
         (fn [r op]
           (update-in r [:ops op]
             (fn [g] (partial g r))))
-        (with-help
-          (reduce
-            (fn [r op] (assoc-in r [:ops op] (compare-G op)))
-            (with-specials m) ops)) ops))))
-
-(defn multivector [{basis :basis} elements]
-  (mapv
-    (fn [[co bb]]
-      (G (get basis bb bb) co))
-    (partition 2 elements)))
+        (with-eigendecomposition (with-help
+           (reduce
+             (fn [r op] (assoc-in r [:ops op] (compare-G op)))
+             (with-specials m) ops))) ops))))
 
 (defn multivector? [f]
   (and
@@ -464,18 +527,19 @@
   ([{:keys [prefix base p q r metric] :or {base 0 prefix 'e}} body]
     (let [
           prefix (name prefix)
-          {:keys [ops specials] :as ga} (ga 'e base 0 0 0)
-           opz (into #{} (filter symbol? (keys ops)))
-           o (complement (into #{} (filter symbol? (keys ops))))
+          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ⍟ ⧄ op]
+          specials '[I I- S]
+           opz (into #{} ops)
+           o (complement opz)
            s (filter symbol? (tree-seq seqable? seq body))
            e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (starts-with? (name i) prefix)
                                                                     (and (namespace i) (starts-with? (namespace i) prefix)))) s)))
            e (mapv (fn [x] (if-let [{b :basis} (bladelike x)] b x)) e)
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
-               {:syms ~(vec (filter symbol? (keys ops)))} :ops
+               {:syms ~ops} :ops
                ~'basis-by-grade :basis-by-grade ~'basis :basis
-               {:syms ~(vec (keys specials))} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :metric ~metric})]
+               {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :metric ~metric})]
           ~(w/postwalk
              (fn [f]
                (cond
@@ -493,5 +557,5 @@
 (defmethod print-method Blade [{:keys [basis scale]} writer]
   (doto writer
     (.write (str scale))
-    (.write " ")
+    (.write "")
     (.write (str basis))))

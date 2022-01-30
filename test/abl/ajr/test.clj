@@ -4,13 +4,47 @@
     [abl.ajr.core :refer :all]
     [clojure.string :as string]))
 
-(require :reload 'abl.ajr.core)
+
+(defn test-dual []
+  (let [{{:syms [∼ * *' *'']} :ops
+         {I 'I I- 'I-} :specials
+         bbg :basis-by-grade :as ga} (ga 2 0 1)
+        e1s (filter (comp (partial == 1) :grade) bbg)
+        duals (map (comp ∼ vector) e1s)
+        *s (map (fn [b] [b (*'' [b] [I])]) e1s)
+        ts (map (fn [v v'] (* [v] v')) e1s duals)]
+    {
+      :1s e1s
+      :duals duals
+      :*s *s
+      :r ts
+    }))
 
 (comment
 
+  (test-dual)
+
+  (G 0 0)
+
+  (in-ga 3 0 1 (:basis-by-grade ga))
+
+  (in-ga 3 0 0
+    (let [mm [
+              [1 e0 0 e1 0 e2]
+              [0 e0 1 e1 0 e2]
+              [0 e0 0 e1 0 e2]
+              ]
+          ga1 (abl.ajr.core/ga {:mm mm :mmga ga :p 2 :q 0 :r 1})]
+      (select-keys ga1 [:eigenvectors :eigenvalues])))
+
+
+  (use 'clojure.stacktrace)
+
+  (print-cause-trace *e)
+
   (in-ga 4 0 0 (∨ [(/ 1 2) e12] [2 e23] [3 e01]))
 
-  (in-ga 4 0 0 (∼ [1 e1 2 e2]))
+  (in-ga 2 0 1 I-)
 
   (in-ga 4 0 0 (⍟ [1 e1 2 e2]))
 
@@ -335,9 +369,9 @@ orthonormal basis vectors ei is one where
 (in-ga 3 0 0
     (qr ga
       [
-        [1 e0 1 e1 2 e2]
-        [2 e0 1 e1 4 e2]
-        [8 e0 3 e1 1 e2]
+        [1 e0 0 e1 0 e2]
+        [0 e0 1 e1 0 e2]
+        [0 e0 0 e1 0 e2]
       ]))
 
 (/ 1 Double/POSITIVE_INFINITY)
@@ -353,7 +387,7 @@ orthonormal basis vectors ei is one where
        ])]
     (for [a q b q] (• a b))))
 
-(in-ga 4 0 0
+(in-ga 4 0 1
   (let [{:keys [q qfn r]}
     (qr ga
       [
@@ -490,21 +524,65 @@ I(−e2) = −e1
 
   t1
 
+  ; (* (• x a) (⁻ a)) projects x onto a, x and a can be any objects
+  ; (* (∧ x a) (⁻ a)) object through x perpendicular to a
 
+  ; fix this bug
+  (in-ga 2 0 1 ((fn [x] [x e0]) 5))
 
-
-  (in-ga 4 0 0
-    (let [r (fn [h x] (* (- h) x (⁻ h)))
-          y' [4.0 e012 4.0 e013 4.0 e023 -4.0 e123]
-          y  (∼ y')
-          x' [4.0 e012 -4.0 e013 4.0 e023 4.0 e123]
-          x (∼ x')
+  (in-ga 2 0 1
+    (let [⟠ (fn [h x] (* (- h) x (⁻ h)))
+          ; line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
+          line (fn [a b c] (multivector ga [a e0 b e1 c e2]))
+          ; point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
+          point (fn [x y] (∼ (multivector ga [x e0 y e1 1 e2])))
+          point' (fn [x y] (multivector ga [x e0 y e1 1 e2]))
+          ; A = point(-1, -1), B = point(-1, 1), C = point(1, 1);
+          a (point -1 -1)
+          b (point -1 1)
+          c (point 1 1)
+          a' (point' -1 -1)
+          a'' (∼ a)
+          ; L = line(1, 1, -0.5)
+          l (line 1 1 -0.5)
+          ; M = ()=>C & A;
+          m (fn [a c] (∨ c a))
+          ; D = ()=>L ^ M;
+          d (fn [l m] (∧ l m))
+          ->210 (partial as {\e \e \0 \1 \1 \2 \2 \0})
+          ->123 (partial as {\e \v \0 \1 \1 \2 \2 \3})
+          ;y' [4.0 e012 4.0 e013 4.0 e023 -4.0 e123]
+          ;y  (∼ y')
+          ;x' [4.0 e012 -4.0 e013 4.0 e023 4.0 e123]
+          ; x (∼ x')
           ;x [e0 e3]
-          b (+ x (- y))
-          h (∼ b)
+          ;b (+ x (- y))
+          ;h (∼ b)
           ]
-      [x h (∼ (r h x'))]))
+      ;[x h (∼ (r h x'))]
+      ;(• [2 e0 3 e1] (∼ [1 e2]))
+      ;(∧ [2 e0 3 e1 0.5 e2] [1.3 e0 -3 e1 0.7 e2])
+      ; orthogonal because the dual of the resulting bivector is orthogonal to both vectors
+      ;(• [-3.7 e0 -0.3 e1 0.7 e2] (∼ (∧ [2 e0 3 e1 0.5 e2] [-3.7 e0 -0.3 e1 0.7 e2])))
+      ; -2.0*e1^e3 + 1.0*e2^e3
+      (-> {
+           :A a
+           :B b
+           :C c
+           :L l
+           :f (* e2 e2)
+           :M (m a c)
+           :D (d l (m a c))
+           := (*' [1 e0 2 e1 3 e2] [I])
+           }
+        ->123
+        )))
 
+  (in-ga 2 0 1 I)
+
+  ; -3.0*e1^e2 - 2.0*e1^e3 + 1.0*e2^e3
+
+  (print-cause-trace *)
 
   (in-ga 4 0 0
     (let [r (fn [h x] (* (- h) x (⁻ h)))]
