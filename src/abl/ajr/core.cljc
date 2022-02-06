@@ -19,24 +19,6 @@
 (def b¬ bit-not)
 (def b⊻ bit-xor)
 
-
-; metric - §19.3
-;
-; k-vectors (weighted sums of k-blades)
-; are represented by vectors of k-blades
-; Or, could add a new type and use protocols
-;
-; ⋀ wedge is also called outer product or exterior product
-; -- although some say that outer and exterior are different
-; because they produce different types of objects;
-; "inner" and "outer" products are associated with
-; vectors and matrices while
-; interior and exterior products are for GA
-; because they produce blades not matrices
-;
-; the geometric product is interior + exterior products
-; exterior product increases grade, interior product decreases grade
-
 (defrecord Blade [bitmap scale grade])
 
 ; grade is the number of factors, or elements
@@ -238,7 +220,7 @@
             ]
          (recur n (inc d)
            (mapv (fn [f x] (f x)) qs' r)
-           (comp q qd) ; use associativity of sandwich product to compose these
+           (comp q qd) ; todo use associativity of sandwich product to compose these
            qs'))
        {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
         :qfn (fn [mvs] (mapv (fn [v] (basis-range (q v) 0 n)) mvs))
@@ -367,8 +349,7 @@
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
      (* (<- mv) [I]))
 
-   ^{:doc "Interior and exterior products"
-     :ascii 'ox :short 'ox :verbose 'interior-and-exterior-product}
+   ^{:doc "Interior and exterior products"}
    ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
      (let [gp (*'' mva mvb)
@@ -377,27 +358,23 @@
           ]
        {:• (simplify ga (map peek int)) :∧ (simplify ga (map peek ext))}))
 
-   ^{:doc "Interior product"
-     :ascii 'o :short 'ip :verbose 'interior-product :gs '><}
+   ^{:doc "Interior product"}
    ['•' :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [•∧]} :ops :as ga} a b]
      (:• (•∧ a b)))
 
-   ^{:doc "Interior product"
-     :ascii 'o :short 'ip :verbose 'interior-product :gs '><}
+   ^{:doc "Interior product"}
    ['• :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*]} :ops :as ga} a b]
      (⌋• ga a b))
 
-   ^{:doc "Exterior product or meet, largest common subspace, intersection"
-     :ascii 'x :short 'xp :verbose 'exterior-product}
+   ^{:doc "Exterior product or meet, largest common subspace, intersection"}
    ['∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∧ [{{:syms [•∧]} :ops :as ga} a b]
      (:∧ (•∧ a b)))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
-     :note "Gunn arXiv:1501.06511v8 §3.1 "
-     :ascii 'v :short 'rp :verbose 'regressive-product}
+     :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
