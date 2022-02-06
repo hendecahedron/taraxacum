@@ -221,7 +221,7 @@
 (defn imv [mvs]
   (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
 
-; GA4CS§7.1
+; GA4CS§19.4
 (defn qr
   ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops
     [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
@@ -254,6 +254,28 @@
     :eigenvectors q
     :eigenvalues (vec (map-indexed (fn [i mv] (mv i)) r))
     }))
+
+(defn ->basis [{[e_] :basis-by-grade
+               bbb :basis-in-order {* '* ∧ '∧ *' '*' •∧ '•∧} :ops :as ga}
+               {:keys [bitmap scale] :as blade} mvs]
+  (loop [r [(G e_ scale)] i 0 b bitmap]
+    (if (== b 0)
+      r
+      (if (even? b)
+        (recur r (inc i) (b>> b 1))
+        (recur
+          (reduce
+             (fn [rr [mv j]]
+               (let [s (:scale (mv i))]
+                 (if (== s 0)
+                   rr
+                   (reduce
+                     (fn [rrr x]
+                       (into rrr (∧ [x] [(G (bbb (b< 1 j)) s)])))
+                     rr r))))
+              [] (map vector mvs (range)))
+           (inc i) (b>> b 1))))))
+
 
 (defn op-error
   ([op {help :help :as ga} a b]
@@ -350,8 +372,9 @@
    ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
      (let [gp (*'' mva mvb)
-           {int true ext false} (group-by (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag))) gp)
-           ]
+           int (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag))) gp)
+           ext (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg))) gp)
+          ]
        {:• (simplify ga (map peek int)) :∧ (simplify ga (map peek ext))}))
 
    ^{:doc "Interior product"
@@ -425,13 +448,13 @@
    ^{:doc "Dual"}
    ['∼ :multivector]
    (fn dual [{{• '•} :ops {I 'I I- 'I-} :specials :as ga} a]
-     (⌋ ga a [I]))
+     (⌋ ga a [I-]))
 
    ; §3.5.3 GA4CS
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops {I 'I I- 'I-} :specials :as ga} a]
-     (⌋ ga [a] [I]))
+     (⌋ ga [a] [I-]))
 
    ^{:doc "Normalize"}
    ['⧄ :multivector]
@@ -473,7 +496,7 @@
     (ga {:prefix prefix :p p :q q :r r}))
   ([prefix base p q r]
     (ga {:prefix prefix :base base :p p :q q :r r}))
-  ([{:keys [prefix base p q r pm qm rm md mm mmga] :or {base 0 pm 1 qm -1 rm 0}}]
+  ([{:keys [prefix base p q r pm qm rm md mm mmga] :or {prefix "e" base 0 pm 1 qm -1 rm 0}}]
     (let [d (+ p q r)
           bases-of (bases-of prefix base d)
           md (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))

@@ -28,6 +28,8 @@
 
   (in-ga 3 0 1 (:basis-by-grade ga))
 
+  (in-ga 2 0 1 (∼ [1 e0 2 e1 3 e2]))
+
   (in-ga 3 0 0
     (let [mm [
               [1 e0 0 e1 0 e2]
@@ -37,6 +39,19 @@
           ga1 (abl.ajr.core/ga {:mm mm :mmga ga :p 2 :q 0 :r 1})]
       (select-keys ga1 [:eigenvectors :eigenvalues])))
 
+  (remove-tap println)
+
+  (require :reload '[abl.ajr.core])
+
+  (in-ga 3 0 0
+    (let [mm [
+              [1 e0 0 e1 0 e2]
+              [0 e0 1 e1 0 e2]
+              [0 e0 0 e1 0 e2]
+              ]
+          ga1 (abl.ajr.core/ga {:prefix 'e :mm mm :mmga ga :p 2 :q 0 :r 1})]
+      (->basis ga1 e2 (:eigenvectors ga1))))
+
 
   (use 'clojure.stacktrace)
 
@@ -44,7 +59,7 @@
 
   (in-ga 4 0 0 (∨ [(/ 1 2) e12] [2 e23] [3 e01]))
 
-  (in-ga 2 0 1 I-)
+  (in-ga 2 0 1 (∼ [e1]))
 
   (in-ga 4 0 0 (⍟ [1 e1 2 e2]))
 
