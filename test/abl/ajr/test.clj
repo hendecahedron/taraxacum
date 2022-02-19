@@ -28,7 +28,9 @@
 
   (in-ga 3 0 1 (:basis-by-grade ga))
 
-  (in-ga 2 0 1 (∼ [1 e0 2 e1 3 e2]))
+  (in-ga 2 0 1 (∼ [e1]))
+
+  (in-ga 3 0 0 (* e1 e2))
 
   (in-ga 3 0 0
     (let [mm [
@@ -43,14 +45,34 @@
 
   (require :reload '[abl.ajr.core])
 
+  "
+    Define metric in 300
+    change basis to that metric
+
+    every GA needs a parent GA which
+    defines its metric, until a root GA
+    which has no parent because it has a
+    diagonal metric which needs no GA because
+    it has a identity eigenbasis
+  "
+
   (in-ga 3 0 0
     (let [mm [
               [1 e0 0 e1 0 e2]
               [0 e0 1 e1 0 e2]
               [0 e0 0 e1 0 e2]
               ]
-          ga1 (abl.ajr.core/ga {:prefix 'e :mm mm :mmga ga :p 2 :q 0 :r 1})]
-      (->basis ga1 e2 (:eigenvectors ga1))))
+          mm1 [
+              [1 e0 0 e1 0 e2]
+              [0 e0 1 e1 0 e2]
+              [0 e0 0 e1 1 e2]
+              ]
+          {eb :eigenvectors :as ga1}
+            (abl.ajr.core/ga {:prefix 'e :mm mm :mmga ga :p 2 :q 0 :r 1})
+          ga2 (abl.ajr.core/ga {:prefix 'e :mm mm1 :mmga ga :p 3 :q 0 :r 0})
+          {{:syms [∼] :as ops} :ops eb1 :eigenvectors :as ega}
+             (abl.ajr.core/ga {:prefix 'e :mm eb :mmga ga :p 3 :q 0 :r 0})]
+      (->basis ega e2)))
 
 
   (use 'clojure.stacktrace)
