@@ -28,7 +28,7 @@
 
   (in-ga 3 0 1 (:basis-by-grade ga))
 
-  (in-ga 2 0 1 (∼ [e1]))
+  (in-ga 2 0 1 (∼ [e2]))
 
   (in-ga 3 0 0 (* e1 e2))
 
@@ -39,7 +39,7 @@
               [0 e0 0 e1 0 e2]
               ]
           ga1 (abl.ajr.core/ga {:mm mm :mmga ga :p 2 :q 0 :r 1})]
-      (select-keys ga1 [:eigenvectors :eigenvalues])))
+      (->basis ga1 [1 e0 2 e1 3 e2])))
 
   (remove-tap println)
 
@@ -56,32 +56,86 @@
     it has a identity eigenbasis
   "
 
-  (in-ga 3 0 0
+  ; shouldn't e2 represent
+  (in-ga 4 0 0
     (let [mm [
-              [1 e0 0 e1 0 e2]
-              [0 e0 1 e1 0 e2]
-              [0 e0 0 e1 0 e2]
+              [1 e0 0 e1 0 e2 0 e3]
+              [0 e0 1 e1 0 e2 0 e3]
+              [0 e0 0 e1 0 e2 1 e3]
+              [0 e0 0 e1 1 e2 0 e3]
               ]
-          mm1 [
-              [1 e0 0 e1 0 e2]
-              [0 e0 1 e1 0 e2]
-              [0 e0 0 e1 1 e2]
-              ]
-          {eb :eigenvectors :as ga1}
-            (abl.ajr.core/ga {:prefix 'e :mm mm :mmga ga :p 2 :q 0 :r 1})
-          ga2 (abl.ajr.core/ga {:prefix 'e :mm mm1 :mmga ga :p 3 :q 0 :r 0})
-          {{:syms [∼] :as ops} :ops eb1 :eigenvectors :as ega}
-             (abl.ajr.core/ga {:prefix 'e :mm eb :mmga ga :p 3 :q 0 :r 0})]
-      (->basis ega e2)))
+          {eb :eigenvectors {* '*} :ops md :metric :as ga1}
+            (abl.ajr.core/ga {:prefix 'e :mm mm :mmga ga})
+             ]
+      eb
 
+      ))
+
+  (map (juxt key (comp count val)) (group-by :grade (:basis-in-order (ga 4 0 0))))
+
+  (in-ga 4 0 0 (* [e2] [e12 e1]))
 
   (use 'clojure.stacktrace)
 
   (print-cause-trace *e)
 
-  (in-ga 4 0 0 (∨ [(/ 1 2) e12] [2 e23] [3 e01]))
+  (in-ga 4 0 0
+    (* [-8 e0] [3 e1 2 e0 4 e2] [5 e2 7 e3] [-9 e3]))
 
-  (in-ga 2 0 1 (∼ [e1]))
+  (in-ga 3 0 1
+    (∧
+      [1 e0 2 e1 3 e2 1 e3]
+      [4 e0 3 e1 2 e2 1 e3]
+      [-1 e0 -7 e1 1 e2 1 e3]))
+
+  ; composition two reflections
+  (in-ga 2 0 1
+    (*
+      [-5 e2 1 e0]
+      [-7 e2 1 e1]))
+
+  ; to form a point
+  ; => [1.0e01 -7.0e02 5.0e12]
+
+  ; (note the due to the order of basis in
+  ; the naming, mine are negative those of Enki's
+  ; because he uses 0 for my 2 - my results agree)
+
+  (in-ga 2 0 1
+    (*
+      (- [1 e01 4 e0 -4 e1])
+      [-5 e2 1 e0]
+      [-7 e2 1 e1]
+      [1 e01 4 e0 -4 e1])
+       )
+
+
+
+  ; in plain 3d vector space the dual works
+  (in-ga 3 0 0 (∼ [1 e2]))
+
+  ; but in projective space it doesn't for the null vector
+  (in-ga 2 0 1 (∼ [1 e2]))
+
+  ; because it's calculated this way
+  (in-ga 2 0 1 (*' [1 e2] [I-]))
+  ; => [-0.0e01]
+  ; the coefficient is 0 because of the metric
+  ; because,
+
+  (in-ga 2 0 1 (*' [1 e2] [1 e01] [1 e2]))
+  ; => [0.0e01]
+
+  ; as you're multiplying two dependent blades
+  ; e012 and e2 which involves using the metric of e2
+
+  (in-ga 2 0 1 (⍟ [1 e2]))
+
+  (in-ga 2 0 1 (∨ [1 e2] [1 e01]))
+
+  (in-ga 2 0 1 (* e2 e02))
+
+  (in-ga 3 0 0 (* [1 e2] [1 e2]))
 
   (in-ga 4 0 0 (⍟ [1 e1 2 e2]))
 
@@ -213,7 +267,7 @@ e3/+0.7
   ; 3e_
 
   (in-ga 0 1 0
-    (reductions * (repeat 4 (0 e0/+1))))
+    (reductions * (repeat 4 [0 e0/+1])))
 
   (in-ga e 2 0 1 (* [e_/+3 e0/-2e-19] [e_/+1 e0/+4]))
 
@@ -380,8 +434,8 @@ orthonormal basis vectors ei is one where
           rpi (fn [x] (/ Math/PI x))
           ]
       (take 8
-        (iterate (partial ⍣ (m (rpi 8) (p 0 3)))
-          (p 1 1)))))
+        (iterate (partial ⍣ (m (rpi 8.0) (p 0.0 3.0)))
+          (p 1.0 1.0)))))
 
 
   ; a 2-d vector
@@ -519,6 +573,8 @@ I(−e2) = −e1
       (- [e12])
       ))
 
+
+
 (in-ga 5 0 0
   (* (- [e234]) [1 e01] (⁻ [e234])))
 
@@ -529,11 +585,49 @@ I(−e2) = −e1
 
  (in-ga 3 0 1 (• [5 e12 3 e0] [2 e3 4 e0]))
 
+  (in-ga 3 0 1
+    (∼ [e23]))
+
+  ; E0 e12 E1 e02 E2 e01
+  ; E2 e01 E1 e02 E0 e12
+
+  (in-ga 2 0 1
+    (let [E2 e01 E0 e12 E1 e02]
+      {:* (* [3 e01 2 e12 1 e02] [1 e01 2 e12 3 e02])
+       :∨ (* (∼ [3 e01 2 e12 1 e02]) (∼ [1 e01 2 e12 3 e02]))}))
+
+
+  ; table 5.2 Gunn - correct results
+  (in-ga 2 0 1
+    (let [E2 e01 E0 e12 E1 e02]
+      (* [E2] [e2])))
+
+  ; ∥ ∥ ∞ ideal norm
+
+  '(("Intersection point of two lines" "a ∧ b")
+     ("Angle of two intersecting lines" "cos−1(a · b), sin−1(∥a ∧ b∥)")
+     ("Distance of two || lines" "∥a ∧ b∥∞")
+     ("Joining line of two points" "P ∨ Q")
+     ("⊥ direction to join of two points" "P × Q")
+     ("Distance between two points" "∥P ∨ Q∥, ∥P × Q∥∞")
+     ("Oriented distance point to line" "∥a ∧ P∥")
+     ("Angle of ideal point to line" "sin−1 (∥a ∧ P∥∞)")
+     ("Line through point ⊥ to line" "P · a")
+     ("Nearest point on line to point" "(P · a)a")
+     ("Line through point || to line" "(P · a)P")
+     ("Area of triangle ABC" "½∥A∨B∨C∥")
+     ("Reflection in line (X = point or line)" "aXa")
+     ("Rotation around point of angle 2α" "RXR̃ (R := eαP)")
+     ("Translation by 2d in direction V⊥" "TXT̃ (T := 1 + dV)"))'
+
+  (use 'clojure.stacktrace)
+  (print-cause-trace *e)
+
   ; reflection in dual hyperplane §7.1
   ; (* -h x ⁻h)
 
   (def t1
-    (in-ga 4 0 0
+    (in-ga 3 0 1
        (let
          [v [
              [1.000000 1.000000 -1.000000]
@@ -550,8 +644,8 @@ I(−e2) = −e1
          (cons {:b' (first f')}
            (for [{fa :face :as a} [(first f')] {fb :face :as b} (rest f')]
               (let [h (∼ (+ (∼ fa) (∼ fb)))
-                    reflect (fn [h x] (* (- h) x (⁻ h)))
-                    T (fn [a b] (∼ (• (∼ b) (<- a))))
+                    reflect (fn [h x] (* (- h) x (<- h)))
+                    T (fn [a b] (⧄ (∼ (• (∼ b) (<- a)))))
                     ]
                 {:a a :b b
                  :a' {:face (reflect (T fa fb) fa)
@@ -565,7 +659,9 @@ I(−e2) = −e1
   ; (* (∧ x a) (⁻ a)) object through x perpendicular to a
 
   ; fix this bug
-  (in-ga 2 0 1 ((fn [x] [x e0]) 5))
+  (in-ga 3 0 1 (map :bitmap [16.0 e23 16.0 e13 -16.0 e03]))
+
+  (in-ga 3 0 1 (<- (:basis-by-grade ga)))
 
   (in-ga 2 0 1
     (let [⟠ (fn [h x] (* (- h) x (⁻ h)))

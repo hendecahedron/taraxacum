@@ -5,7 +5,7 @@
   (:require
     [clojure.string :as string :refer [starts-with?]]
     [clojure.math.combinatorics :as x]
-    [clojure.java.math :refer :all :exclude [min max]]
+    [clojure.math :refer :all :exclude [min max]]
     [clojure.walk :as w])
   (:import
      #?(:clj  [clojure.lang PersistentVector]
@@ -140,7 +140,7 @@
   (simplify- (consolidate-blades ga) blades))
 
 (defn <>
-  "return the grade r part of mv"
+  "return the multivector by grade"
   [mv]
   [(into {} (map (juxt :grade identity) mv))])
 
@@ -267,7 +267,7 @@
 
 (defn op-error
   ([op {help :help :as ga} a b]
-   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) " & " (type b)) {:op op :args [a b]})))
+   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) a " & " (type b) b) {:op op :args [a b]})))
   ([op {help :help :as ga} a]
    (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) a) {:op op :arg a}))))
 
@@ -361,10 +361,10 @@
      (let [gp (*'' mva mvb)
            int (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag))) gp)
            ext (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg))) gp)
-          ]
+           ]
        {:• (simplify ga (map peek int)) :∧ (simplify ga (map peek ext))}))
 
-   ^{:doc "Interior product"}
+   ^{:doc "Interior product ·"}
    ['•' :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [•∧]} :ops :as ga} a b]
      (:• (•∧ a b)))
@@ -385,6 +385,19 @@
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
      (∼ (* (∼ a) (∼ b))))
+
+   ^{:doc "Regressive product or join, smallest common superspace, union"
+     :note "Gunn arXiv:1501.06511v8 §3.1"}
+   ['∨' :dependent PersistentVector PersistentVector :grades :grades]
+   (fn ∨' [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
+     (∼ (∧ (∼ b) (∼ b))))
+
+   ^{:doc "Regressive product or join, smallest common superspace, union"
+     :note "Gunn arXiv:1501.06511v8 §3.1"}
+   ['h∨ :dependent PersistentVector PersistentVector :grades :grades]
+   (fn h∨ [{{:syms [* • ∼]} :ops :as ga} a b]
+     ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
+     (• (∼ a) b))
 
    ^{:doc "Sum, bisect 2 planes, bisect 2 normalized lines"
      :ascii '+ :short 'sum :verbose 'sum :gs '+}
@@ -430,8 +443,10 @@
 
    ^{:doc "Dual"}
    ['∼ :multivector]
-   (fn dual [{{• '•} :ops {I 'I I- 'I-} :specials :as ga} a]
-     (⌋ ga a [I-]))
+   (fn dual [{{• '•} :ops duals :duals n :size :as ga} a]
+     ; (⌋ ga a [I-])
+     (mapv (fn [{b :bitmap s :scale}] (assoc (duals b) :scale s)) a)
+     )
 
    ; §3.5.3 GA4CS
    ^{:doc "Dual"}
@@ -473,27 +488,38 @@
      ga))
 
 (defn ga-
-  ([{:keys [prefix base p q r pm qm rm md mm mmga]
+  "Create a new GA from the given params:
+   md - metric diagonal
+   Metrics:
+
+   Euclidean - all diagonal elements are 1
+   Diagonal - metric factors only along diagonal
+   Othonormal
+  "
+  ([{:keys [prefix base p q r pm qm rm md]
      :or {prefix "e" base 0 pm 1 qm -1 rm 0}}]
     (let [md (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))
           p (or p (count (filter (partial == 1) md)))
           q (or q (count (filter (partial == -1) md)))
           r (or r (count (filter (partial == 0) md)))
           d (+ p q r)
-          bases-of (bases-of prefix base d)
+          bases (bases-of prefix base d)
+          bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
           m {
              :p p
              :q q
              :r r
              :metric md
-             :basis bases-of
-             :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases-of) 0)) bases-of)
-             :basis-by-grade (vec (sort compare-blades (vals bases-of)))
-             :basis-in-order (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases-of) 0)) bases-of)
+             :basis bases
+             :size (Math/pow 2 d)
+             :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases) 0)) bases)
+             :duals (vec (rseq bio))
+             :basis-by-grade (vec (sort compare-blades (vals bases)))
+             :basis-in-order bio
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
           ]
       (ga- m ops)))
   ([m ops]
@@ -517,10 +543,13 @@
   ([{:keys [prefix base p q r pm qm rm md mm mmga]
      :or {prefix "e" base 0 pm 1 qm -1 rm 0} :as params}]
     (let [
-           g (ga- params)
+           ; if creating a GA from a metric-multivectors, precompute their eigendecomposition
+           ; now for later changes of basis. Such a change of basis needs a GA itself,
+           ; so either use the one supplied or create one
            {:keys [eigenvalues eigenvectors]} (if mm (eigendecompose mmga mm) nil)
+           g (ga- (if mm (assoc params :md (mapv :scale eigenvalues)) params))
            g' (assoc g :eigenvectors eigenvectors :eigenvalues eigenvalues
-                       :metric-mvs mm :mmga mmga)
+                       :metric-mvs mm :mmga (or mmga (ga- {:prefix 'b :p (count mm) :q 0 :r 0})))
          ]
       g')))
 
@@ -552,7 +581,7 @@
   ([{:keys [prefix base p q r mm] :or {base 0 prefix 'e}} body]
     (let [
           prefix (name prefix)
-          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
           specials '[I I- S]
            opz (into #{} ops)
            o (complement opz)
