@@ -125,6 +125,9 @@
     (partition-by :bitmap)
     (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb)))))))
 
+(def int-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag)))))
+(def ext-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg)))))
+
 (defn consolidate&remove0s [ga]
   (comp
     (consolidate-blades ga)
@@ -133,8 +136,9 @@
 (defn simplify- [xf blades]
   (into [] xf (sort-by :bitmap blades)))
 
-(defn simplify [ga blades]
-  (simplify- (consolidate&remove0s ga) blades))
+(defn simplify
+  ([ga blades]
+    (simplify- (consolidate&remove0s ga) blades)))
 
 (defn simplify0 [ga blades]
   (simplify- (consolidate-blades ga) blades))
@@ -160,10 +164,9 @@
   [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
   (simplify-
     (comp
-      (filter (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]] (== g (- bg ag))))
+      (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- bg ag))))
       (map peek)
-      (consolidate&remove0s ga)
-      )
+      (consolidate&remove0s ga))
     (** ga mva mvb)))
 
 (defn ⌊
@@ -171,7 +174,7 @@
   [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
   (simplify-
     (comp
-      (filter (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]] (== g (- ag bg))))
+      (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- ag bg))))
       (map peek)
       (consolidate&remove0s ga))
     (** ga mva mvb)))
@@ -358,11 +361,8 @@
    ^{:doc "Interior and exterior products"}
    ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
-     (let [gp (*'' mva mvb)
-           int (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag))) gp)
-           ext (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg))) gp)
-           ]
-       {:• (simplify ga (map peek int)) :∧ (simplify ga (map peek ext))}))
+     (let [gp (*'' mva mvb)]
+       {:• (simplify- (comp int-xf (map peek)) gp) :∧ (simplify- (comp ext-xf (map peek)) gp)}))
 
    ^{:doc "Interior product ·"}
    ['•' :dependent PersistentVector PersistentVector :grades :grades]
@@ -383,14 +383,13 @@
      :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
-     ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
      (∼ (* (∼ a) (∼ b))))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨' :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨' [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
-     (∼ (∧ (∼ b) (∼ b))))
+     (simplify ga (∼ (∧ (∼ a) (∼ b)))))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
@@ -496,9 +495,9 @@
    Diagonal - metric factors only along diagonal
    Othonormal
   "
-  ([{:keys [prefix base p q r pm qm rm md]
-     :or {prefix "e" base 0 pm 1 qm -1 rm 0}}]
-    (let [md (or md (vec (concat (repeat p pm) (repeat q qm) (repeat r rm))))
+  ([{:keys [prefix base p q r pm qm rm md pqr]
+     :or {prefix "e" base 0 pm 1 qm -1 rm 0 pqr [:p :q :r]}}]
+    (let [md (or md (vec (apply concat (map {:p (repeat p pm) :q (repeat q qm) :r (repeat r rm)} pqr))))
           p (or p (count (filter (partial == 1) md)))
           q (or q (count (filter (partial == -1) md)))
           r (or r (count (filter (partial == 0) md)))
@@ -578,7 +577,7 @@
     `(in-ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r} ~body))
   ([p q r body]
     `(in-ga {:prefix e :base 0 :p ~p :q ~q :r ~r} ~body))
-  ([{:keys [prefix base p q r mm] :or {base 0 prefix 'e}} body]
+  ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
     (let [
           prefix (name prefix)
           ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
@@ -593,7 +592,7 @@
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~ops} :ops
                ~'basis-by-grade :basis-by-grade ~'basis :basis
-               {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm})]
+               {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
           ~(w/postwalk
              (fn [f]
                (cond
