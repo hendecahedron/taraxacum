@@ -494,6 +494,8 @@
    Euclidean - all diagonal elements are 1
    Diagonal - metric factors only along diagonal
    Othonormal
+
+   use :pqr to permute pqr e.g. [:r :q :p] so e0 is 0^2
   "
   ([{:keys [prefix base p q r pm qm rm md pqr]
      :or {prefix "e" base 0 pm 1 qm -1 rm 0 pqr [:p :q :r]}}]
