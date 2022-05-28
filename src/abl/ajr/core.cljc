@@ -281,8 +281,10 @@
         ((ops (compare-G op m a) (partial op-error op)) (assoc m :op op) a))
       ([{ops :ops :as m} a b]
         ((ops (compare-G op m a b) (partial op-error op)) (assoc m :op op) a b))
-      ([{ops :ops :as m} a b & more]
-        (reduce (partial (ops (compare-G op m a b) (partial op-error op)) (assoc m :op op)) (cons a (cons b more))))))
+      ([{ops :ops :as ga} a b & more]
+       (cond
+         (ops [op :multivectors]) ((ops [op :multivectors]) ga (cons a (cons b more)))
+         :default (reduce (partial (ops (compare-G op ga a b) (partial op-error op)) (assoc ga :op op)) (cons a (cons b more)))))))
   ([op ga a b]
     (let [meet (if (and (:bitmap a) (:bitmap b)) (b& (:bitmap a) (:bitmap b)) nil)
           dependency (if (and meet (zero? meet)) :independent :dependent)
@@ -389,7 +391,17 @@
      :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
-     (simplify ga (∼ (∧ (∼ a) (∼ b)))))
+     (simplify ga (∼ (∧ (∼ b) (∼ a)))))
+
+   ; I'll think of a more elegant way to handle this later
+   ^{:doc "Regressive product or join, smallest common superspace, union"
+     :note "Gunn arXiv:1501.06511v8 §3.1"}
+   ['∨ :multivectors]
+   (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} mvs]
+     (let [r (simplify ga (∼ (reduce ∧ (map ∼ mvs))))]
+       (if (odd? (count mvs))
+         r
+         (map (fn [b] (update b :scale * -1)) r))))
 
    ^{:doc ""
      :note ""}
