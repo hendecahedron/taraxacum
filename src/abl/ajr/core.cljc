@@ -381,18 +381,18 @@
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
-   ['∨ :dependent PersistentVector PersistentVector :grades :grades]
-   (fn ∨ [{{:syms [* • ∼]} :ops :as ga} a b]
+   ['∨' :dependent PersistentVector PersistentVector :grades :grades]
+   (fn ∨' [{{:syms [* • ∼]} :ops :as ga} a b]
      (∼ (* (∼ a) (∼ b))))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
-   ['∨' :dependent PersistentVector PersistentVector :grades :grades]
-   (fn ∨' [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
+   ['∨ :dependent PersistentVector PersistentVector :grades :grades]
+   (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
      (simplify ga (∼ (∧ (∼ a) (∼ b)))))
 
-   ^{:doc "Regressive product or join, smallest common superspace, union"
-     :note "Gunn arXiv:1501.06511v8 §3.1"}
+   ^{:doc ""
+     :note ""}
    ['h∨ :dependent PersistentVector PersistentVector :grades :grades]
    (fn h∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
