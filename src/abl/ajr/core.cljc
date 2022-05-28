@@ -442,16 +442,15 @@
 
    ^{:doc "Dual"}
    ['∼ :multivector]
-   (fn dual [{{• '•} :ops duals :duals n :size :as ga} a]
+   (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} a]
      ; (⌋ ga a [I-])
-     (mapv (fn [{b :bitmap s :scale}] (assoc (duals b) :scale s)) a)
+     (mapv (fn [{bm :bitmap s :scale}] (assoc (duals bm) :scale (* (ds bm) s))) a)
      )
 
-   ; §3.5.3 GA4CS
    ^{:doc "Dual"}
    ['∼ Blade]
-   (fn dual [{{⌋ '⌋ • '•} :ops {I 'I I- 'I-} :specials :as ga} a]
-     (⌋ ga [a] [I-]))
+   (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
+     (assoc (duals bm) :scale (* (ds bm) s)))
 
    ^{:doc "Normalize"}
    ['⧄ :multivector]
@@ -459,7 +458,7 @@
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
-(defn with-specials [{b :basis-by-grade :as ga}]
+(defn with-specials [{b :basis-by-grade bio :basis-in-order :as ga}]
   (let [
          I (peek b)
          I- (edalb I)
@@ -467,6 +466,11 @@
        ]
     (assoc ga :specials
       {'I I 'I- I- 'S S})))
+
+; the sign of the dual such that (= I (* x (∼ x)))
+(defn add-duals- [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
+  (assoc ga :duals-
+    (mapv (fn [a b] (:scale (* ga a b))) duals bbg)))
 
 (defn compare-blades [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
   (if (== ag bg)
@@ -506,6 +510,7 @@
           d (+ p q r)
           bases (bases-of prefix base d)
           bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
+          bbg (vec (sort compare-blades (vals bases)))
           m {
              :p p
              :q q
@@ -514,8 +519,8 @@
              :basis bases
              :size (Math/pow 2 d)
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases) 0)) bases)
-             :duals (vec (rseq bio))
-             :basis-by-grade (vec (sort compare-blades (vals bases)))
+             :duals (vec (rseq bbg))
+             :basis-by-grade bbg
              :basis-in-order bio
              :ops (ga-ops)
              }
@@ -530,9 +535,9 @@
   ([m g ops]
    (reduce
      (fn [r op]
-        (update-in r [:ops op]
-          (fn [g] (partial g r))))
-     (-> g with-specials with-help) ops)))
+       (update-in r [:ops op]
+         (fn [g] (partial g r))))
+     (-> g add-duals- with-specials with-help) ops)))
 
 (defn ga
   ([p q r]
@@ -593,7 +598,10 @@
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~ops} :ops
-               ~'basis-by-grade :basis-by-grade ~'basis :basis
+               ~'basis-by-grade :basis-by-grade
+               ~'basis-in-order :basis-in-order
+               ~'basis :basis
+               ~'duals :duals ~'duals- :duals-
                {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
           ~(w/postwalk
              (fn [f]
