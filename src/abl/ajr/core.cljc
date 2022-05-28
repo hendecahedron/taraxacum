@@ -388,8 +388,8 @@
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent PersistentVector PersistentVector :grades :grades]
-   (fn ∨ [{{:syms [∧ ∼ ∼']} :ops {:keys [I I-]} :specials :as ga} a b]
-     (simplify ga (∼' (∧ (∼ a) (∼ b)))))
+   (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
+     (simplify ga (∼ (∧ (∼ a) (∼ b)))))
 
    ^{:doc ""
      :note ""}
@@ -448,22 +448,9 @@
              (assoc (duals (assoc a :scale 1.0)) :scale (* (ds (assoc a :scale 1.0)) s))) mv)
      )
 
-   ^{:doc "unDual"}
-   ['∼' :multivector]
-   (fn undual [{{• '•} :ops duals' :duals' ds' :duals-' :as ga} mv]
-     (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals' (assoc a :scale 1.0)) :scale (* (ds' (assoc a :scale 1.0)) s))) mv)
-     )
-
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals (assoc a :scale 1)) :scale (* (ds (assoc a :scale 1)) s)))
-
-
-   ^{:doc "Undual"}
-   ['∼' Blade]
-   (fn undual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
      (assoc (duals (assoc a :scale 1)) :scale (* (ds (assoc a :scale 1)) s)))
 
    ^{:doc "Normalize"}
@@ -482,11 +469,9 @@
       {'I I 'I- I- 'S S})))
 
 ; the sign of the dual such that (= I (* x (∼ x)))
-(defn add-duals- [{bbg :basis-by-grade duals :duals duals' :duals'
-                  {:syms [*]} :ops :as ga}]
-  (-> ga
-    (assoc :duals- (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals)))
-    (assoc :duals-' (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals')))))
+(defn add-duals- [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
+  (assoc ga :duals-
+    (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals))))
 
 (defn compare-blades [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
   (if (== ag bg)
@@ -538,13 +523,12 @@
              :zv zv
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
              :duals (zipmap bbg (rseq bbg))
-             :duals' (zipmap (rseq bbg) bbg)
              :basis-by-grade bbg
              :basis-in-order bio
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∼' ∨ ∨' h∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
           ]
       (ga- m ops)))
   ([m ops]
@@ -606,7 +590,7 @@
   ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
     (let [
           prefix (name prefix)
-          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∼' ∨ ∨' h∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
           specials '[I I- S]
            opz (into #{} ops)
            o (complement opz)
@@ -623,8 +607,6 @@
                ~'basis :basis
                ~'duals :duals
                ~'duals- :duals-
-               ~'duals' :duals'
-               ~'duals-' :duals-'
                {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
           ~(w/postwalk
              (fn [f]
