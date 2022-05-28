@@ -442,15 +442,16 @@
 
    ^{:doc "Dual"}
    ['∼ :multivector]
-   (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} a]
+   (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
-     (mapv (fn [{bm :bitmap s :scale}] (assoc (duals bm) :scale (* (ds bm) s))) a)
+     (mapv (fn [{bm :bitmap s :scale :as a}]
+             (assoc (duals (assoc a :scale 1.0)) :scale (* (ds (assoc a :scale 1.0)) s))) mv)
      )
 
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals bm) :scale (* (ds bm) s)))
+     (assoc (duals (assoc a :scale 1)) :scale (* (ds (assoc a :scale 1)) s)))
 
    ^{:doc "Normalize"}
    ['⧄ :multivector]
@@ -470,7 +471,7 @@
 ; the sign of the dual such that (= I (* x (∼ x)))
 (defn add-duals- [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
   (assoc ga :duals-
-    (mapv (fn [a b] (:scale (* ga a b))) duals bbg)))
+    (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals))))
 
 (defn compare-blades [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
   (if (== ag bg)
@@ -511,6 +512,7 @@
           bases (bases-of prefix base d)
           bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
           bbg (vec (sort compare-blades (vals bases)))
+          zv (vec (repeat (count bases) 0))
           m {
              :p p
              :q q
@@ -518,8 +520,9 @@
              :metric md
              :basis bases
              :size (Math/pow 2 d)
-             :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) (vec (repeat (count bases) 0)) bases)
-             :duals (vec (rseq bbg))
+             :zv zv
+             :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
+             :duals (zipmap bbg (rseq bbg))
              :basis-by-grade bbg
              :basis-in-order bio
              :ops (ga-ops)
@@ -599,9 +602,11 @@
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~ops} :ops
                ~'basis-by-grade :basis-by-grade
+               ~'basis-by-bitmap :basis-by-bitmap
                ~'basis-in-order :basis-in-order
                ~'basis :basis
-               ~'duals :duals ~'duals- :duals-
+               ~'duals :duals
+               ~'duals- :duals-
                {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
           ~(w/postwalk
              (fn [f]
