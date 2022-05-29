@@ -100,6 +100,10 @@
     (let [E2 e01 E0 e12 E1 e02]
       (* [E2] [e2])))
 
+  (in-ga 3 0 1
+    (let [E2 e01 E0 e12 E1 e02]
+      (* [E2] [e2])))
+
   ; ∥ ∥ ∞ ideal norm
 
   '(("Intersection point of two lines" "a ∧ b")

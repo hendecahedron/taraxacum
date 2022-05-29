@@ -355,8 +355,8 @@
    (fn g*0 [{{* '*} :ops :as ga} a b]
      (simplify0 ga (for [a a b b] (* a b))))
 
-   ^{:doc "Hodge dual ⍟"}
-   ['⍟ :multivector]
+   ^{:doc "Hodge dual ★"}
+   ['★ :multivector]
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
      (* (<- mv) [I]))
 
@@ -540,7 +540,7 @@
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
           ]
       (ga- m ops)))
   ([m ops]
@@ -602,7 +602,7 @@
   ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
     (let [
           prefix (name prefix)
-          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ⍟ ⧄ op]
+          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
           specials '[I I- S]
            opz (into #{} ops)
            o (complement opz)
