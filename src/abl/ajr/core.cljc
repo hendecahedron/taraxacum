@@ -83,15 +83,6 @@
            d (if l (sqrt (abs l)) 1)] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
      mv))
 
-(defn as [bases-map f]
-  (w/postwalk
-    (fn [x]
-      (if (:basis x)
-       (update x :basis
-         (fn [n]
-           (symbol (apply str (cons (bases-map (first (name n))) (sort (map bases-map (rest (name n)))))))))
-        x)) f))
-
 ; todo check that the bitmaps made by xoring here are < count bases
 ; also this is only good for small numbers of dimensions
 ; soon need to work out how to manage large spaces
@@ -485,7 +476,7 @@
       {'I I 'I- I- 'S S})))
 
 ; the sign of the dual such that (= I (* x (∼ x)))
-(defn add-duals- [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
+(defn with-duals [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
   (assoc ga :duals-
     (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals))))
 
@@ -556,7 +547,7 @@
      (fn [r op]
        (update-in r [:ops op]
          (fn [g] (partial g r))))
-     (-> g add-duals- with-specials with-help) ops)))
+     (-> g with-duals with-specials with-help) ops)))
 
 (defn ga
   ([p q r]
