@@ -47,11 +47,11 @@
       (G (get basis bb bb) co))
     (partition 2 elements)))
 
-(defn <- [{:keys [scale grade] :as blade}]
+(defn edalb [{:keys [scale grade] :as blade}]
   (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
 
-(defn <-- [multivector]
-  (mapv <- multivector))
+(defn <- [multivector]
+  (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
   (G blade (* scale (pow -1.0 grade))))
@@ -70,7 +70,7 @@
   ([mv] (mapv negate mv)))
 
 (defn inverse [{{:syms [• *]} :ops {S 'S} :specials :as ga} mv]
-  (let [r (<-- mv)
+  (let [r (<- mv)
         [{s :scale}] (• r r)]
      (if s
        (* r [(G S (/ 1.0 s))])
@@ -416,7 +416,7 @@
    ['𝑒 :multivector]
    (fn exp [{{:syms [• *]} :ops
              basis :basis [G_] :basis-in-order :as ga} a]
-     (let [[{max :scale}] (• a (<-- a))
+     (let [[{max :scale}] (• a (<- a))
            scale (loop [s (if (> max 1) (b< 1 1) 1) m max]
                    (if (> m 1) (recur (b< s 1) (/ m 2)) s))
            scaled (* a [(G (basis G_) (/ 1 scale))])
@@ -433,7 +433,7 @@
    ^{:doc "Sandwich product"}
    ['⍣ :dependent PersistentVector PersistentVector :grades :grades]
    (fn |*| [{{* '*} :ops :as ga} r mv]
-     (reduce * [(<-- r) mv r]))
+     (reduce * [(<- r) mv r]))
 
    ^{:doc "Inverse"}
    ['⁻ :multivector]
@@ -462,12 +462,12 @@
    ^{:doc "Hodge dual ★"}
    ['★ :multivector]
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
-     (* (<-- mv) [I]))
+     (* (<- mv) [I]))
 
    ^{:doc "Hodge dual ★"}
    ['★ Blade]
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} x]
-     (* (<- x) I))
+     (* (edalb x) I))
 
    ^{:doc "Normalize"}
    ['⧄ :multivector]
@@ -478,7 +478,7 @@
 (defn with-specials [{b :basis-by-grade bio :basis-in-order :as ga}]
   (let [
          I (peek b)
-         I- (<- I)
+         I- (edalb I)
          S (first b)
        ]
     (assoc ga :specials
