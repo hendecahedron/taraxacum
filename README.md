@@ -1,6 +1,6 @@
 # abl-ajr
 
-This library is a work in progress from my notes taken while learning Geometric Algebra. At this stage it has the core GA functions in Euclidean metric:
+This library is an experimental work in progress from my notes taken while learning Geometric Algebra. At this stage it has the core GA functions in Euclidean metric:
 ```
   * geometric product
   • interior product
@@ -9,8 +9,6 @@ This library is a work in progress from my notes taken while learning Geometric 
   ∨ regressive product    
   𝑒 exponential
 ```   
-There are things I like and things I don't like about this code. It is unoptimized, experimental, and will change.
-
 
 
 ## The Geometric Numbers
@@ -139,7 +137,7 @@ Universal Geometric Algebra, David Hestenes
 
 Geometric Algebra Primer, Jaap Suter
 
-and the bivector discord
+and the bivector discord, particularly Enki
 
 
 #### Acknowledgements
