@@ -349,8 +349,9 @@
    ^{:doc "Interior and exterior products"}
    ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
-     (let [gp (*'' mva mvb)]
-       {:• (simplify- (comp int-xf (map peek)) gp) :∧ (simplify- (comp ext-xf (map peek)) gp)}))
+     (let [gp (sort-by (comp :bitmap peek) (*'' mva mvb))]
+       {:• (simplify- (comp int-xf (map peek) (consolidate&remove0s ga)) gp)
+        :∧ (simplify- (comp ext-xf (map peek) (consolidate&remove0s ga)) gp)}))
 
    ^{:doc "Interior product ·"}
    ['•' :dependent PersistentVector PersistentVector :grades :grades]
