@@ -1,15 +1,12 @@
 (ns abl.ajr.core
   "
-     
+
   "
   (:require
     [clojure.string :as string :refer [starts-with?]]
+    [clojure.math :refer [pow]]
     [clojure.math.combinatorics :as x]
-    [clojure.math :refer :all :exclude [min max]]
-    [clojure.walk :as w])
-  (:import
-     #?(:clj  [clojure.lang PersistentVector]
-        :cljs [cljs.core    PersistentVector])))
+    [clojure.walk :as w]))
 
 (def b& bit-and)
 (def b| bit-or)
@@ -209,7 +206,7 @@
               bi' (+ (⧄ vd) ed)                         ; bisector of unit v and ei
               bi  (if (seq bi') bi' ed)                 ; if v is ei then bisector will be empty
               hy  (∼ bi)                                ; reflection hyperplane
-              qd  (fn [x] (*0 (- hy) x (⁻ hy)))
+              qd  (fn [x] (* (- hy) x (⁻ hy)))
               qs' (into (vec (repeat d identity)) (repeat (clojure.core/- n d) qd))
             ]
          (recur n (inc d)
@@ -527,7 +524,7 @@
              :r r
              :metric md
              :basis bases
-             :size (Math/pow 2 d)
+             :size (pow 2 d)
              :zv zv
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
              :duals (zipmap bbg (rseq bbg))
@@ -580,7 +577,7 @@
 (defn bladelike [x]
   (if (symbol? x)
     (let [basis (namespace x) n (name x)]
-      (try {:basis (symbol basis) :scale (Double/parseDouble n)}
+      (try {:basis (symbol basis) :scale (parse-double n)}
         (catch Exception e nil)))
     nil))
 
