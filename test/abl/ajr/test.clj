@@ -94,6 +94,8 @@
         [7 e0 8 e1 9 e2]]))
 
 
+  (in-ga 3 0 0
+    (* 2.0 3.0))
 
   ; table 5.2 Gunn - correct results
   (in-ga 2 0 1

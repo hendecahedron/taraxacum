@@ -1,6 +1,6 @@
 (ns abl.ajr.core
   "
-
+     
   "
   (:require
     [clojure.string :as string :refer [starts-with?]]
@@ -261,9 +261,9 @@
 
 (defn op-error
   ([op {help :help :as ga} a b]
-   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) a " & " (type b) b) {:op op :args [a b]})))
+   (throw (ex-info (str op " (" (help op) ") can't take " (or (type a) "nil") a " & " (or (type b) "nil") b) {:op op :args [a b]})))
   ([op {help :help :as ga} a]
-   (throw (ex-info (str "operation: " op " (" (help op) ") can't take " (type a) a) {:op op :arg a}))))
+   (throw (ex-info (str op " (" (help op) ") can't take " (or (type a) "nil") a) {:op op :arg a}))))
 
 (defn compare-G
   ([op]
