@@ -11,8 +11,6 @@
   (print-cause-trace *e)
 
 
-  (parse-double)
-
   (in-ga 3 0 1
     (∧
       [1 e0 2 e1 3 e2 1 e3]

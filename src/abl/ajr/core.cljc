@@ -4,7 +4,7 @@
   "
   (:require
     [clojure.string :as string :refer [starts-with?]]
-    [clojure.math :refer [pow]]
+    [clojure.math :refer [pow sqrt signum]]
     [clojure.math.combinatorics :as x]
     [clojure.walk :as w]))
 
@@ -115,6 +115,8 @@
 
 (def int-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag)))))
 (def ext-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg)))))
+
+(def remove-scalars-xf (remove (comp zero? :grade)))
 
 (defn consolidate&remove0s [ga]
   (comp
@@ -277,8 +279,11 @@
     (let [meet (if (and (:bitmap a) (:bitmap b)) (b& (:bitmap a) (:bitmap b)) nil)
           dependency (if (and meet (zero? meet)) :independent :dependent)
           ag (if (vector? a) :grades (min 1 (or (:grade a) 0)))
-          bg (if (vector? b) :grades (min 1 (or (:grade b) 0)))]
-       [op dependency (type a) (type b) ag bg]))
+          bg (if (vector? b) :grades (min 1 (or (:grade b) 0)))
+          ta (cond (number? a) :number (:bitmap a) :blade (vector? a) :multivector)
+          tb (cond (number? b) :number (:bitmap b) :blade (vector? b) :multivector)
+          ]
+       [op dependency ta tb ag bg]))
    ([op ga a]
     (cond
       (seq? a) [op :multivectors]
@@ -287,32 +292,32 @@
 
 (defn ga-ops []
   {
-   [:no-such-op :independent Blade Blade 0 0]
+   [:no-such-op :independent :blade :blade 0 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :dependent Double Double 0 0]
+   ['* :dependent :number :number 0 0]
    (fn g* [ga a b]
      (* a b))
 
-   ['* :independent Blade Blade 0 0]
+   ['* :independent :blade :blade 0 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :independent Blade Blade 0 1]
+   ['* :independent :blade :blade 0 1]
    (fn g* [ga a b]
      (update b :scale * (:scale a)))
 
-   ['* :independent Blade Blade 1 0]
+   ['* :independent :blade :blade 1 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :independent Blade Blade 1 1]
+   ['* :independent :blade :blade 1 1]
    (fn g* [ga {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (* (canonical-order bma bmb) va vb)))
 
-   ['* :dependent Blade Blade 1 1]
+   ['* :dependent :blade :blade 1 1]
    (fn g* [{metric :metric :as ga} {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
@@ -323,57 +328,57 @@
              (if (== 1 (b& m 1)) (* s (metric i)) s))))))
 
    ^{:doc "raw Geometric product"}
-   ['*'' :dependent PersistentVector PersistentVector :grades :grades]
+   ['*'' :dependent :multivector :multivector :grades :grades]
    (fn g*'' [{{* '*} :ops :as ga} mva mvb]
      (for [a mva b mvb] [a b (* a b)]))
 
    ; see 22.3.1 for future optimizations
    ^{:doc "Geometric product" :e.g. '(* [1 v1 2 v2] [3 v0 4 v2])}
-   ['* :dependent PersistentVector PersistentVector :grades :grades]
+   ['* :dependent :multivector :multivector :grades :grades]
    (fn g* [{{* '*} :ops :as ga} a b]
      (simplify ga (for [a a b b] (* ga a b))))
 
    ^{:doc "unsimplified Geometric product"}
-   ['*' :dependent PersistentVector PersistentVector :grades :grades]
+   ['*' :dependent :multivector :multivector :grades :grades]
    (fn g*' [{{* '*} :ops :as ga} a b]
      (vec (for [a a b b] (* a b))))
 
    ^{:doc "simplified Geometric product keep zeros"}
-   ['*0 :dependent PersistentVector PersistentVector :grades :grades]
+   ['*0 :dependent :multivector :multivector :grades :grades]
    (fn g*0 [{{* '*} :ops :as ga} a b]
      (simplify0 ga (for [a a b b] (* a b))))
 
    ^{:doc "Interior and exterior products"}
-   ['•∧ :dependent PersistentVector PersistentVector :grades :grades]
+   ['•∧ :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
      (let [gp (sort-by (comp :bitmap peek) (*'' mva mvb))]
        {:• (simplify- (comp int-xf (map peek) (consolidate&remove0s ga)) gp)
         :∧ (simplify- (comp ext-xf (map peek) (consolidate&remove0s ga)) gp)}))
 
    ^{:doc "Interior product ·"}
-   ['•' :dependent PersistentVector PersistentVector :grades :grades]
+   ['•' :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [•∧]} :ops :as ga} a b]
      (:• (•∧ a b)))
 
    ^{:doc "Interior product"}
-   ['• :dependent PersistentVector PersistentVector :grades :grades]
+   ['• :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [*]} :ops :as ga} a b]
      (⌋• ga a b))
 
    ^{:doc "Exterior product or meet, largest common subspace, intersection"}
-   ['∧ :dependent PersistentVector PersistentVector :grades :grades]
+   ['∧ :dependent :multivector :multivector :grades :grades]
    (fn ∧ [{{:syms [•∧]} :ops :as ga} a b]
      (:∧ (•∧ a b)))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
-   ['∨' :dependent PersistentVector PersistentVector :grades :grades]
+   ['∨' :dependent :multivector :multivector :grades :grades]
    (fn ∨' [{{:syms [* • ∼]} :ops :as ga} a b]
      (∼ (* (∼ a) (∼ b))))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
-   ['∨ :dependent PersistentVector PersistentVector :grades :grades]
+   ['∨ :dependent :multivector :multivector :grades :grades]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
      (simplify ga (∼ (∧ (∼ b) (∼ a)))))
 
@@ -389,14 +394,14 @@
 
    ^{:doc ""
      :note ""}
-   ['h∨ :dependent PersistentVector PersistentVector :grades :grades]
+   ['h∨ :dependent :multivector :multivector :grades :grades]
    (fn h∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
      (• (∼ a) b))
 
    ^{:doc "Sum, bisect 2 planes, bisect 2 normalized lines"
      :ascii '+ :short 'sum :verbose 'sum :gs '+}
-   ['+ :dependent PersistentVector PersistentVector :grades :grades]
+   ['+ :dependent :multivector :multivector :grades :grades]
    (fn g+ [ga a b]
      (simplify ga (into a b)))
 
@@ -420,7 +425,7 @@
            (simplify ga r)))))
 
    ^{:doc "Sandwich product"}
-   ['⍣ :dependent PersistentVector PersistentVector :grades :grades]
+   ['⍣ :dependent :multivector :multivector :grades :grades]
    (fn |*| [{{* '*} :ops :as ga} r mv]
      (reduce * [(<- r) mv r]))
 
@@ -630,5 +635,5 @@
 (defmethod print-method Blade [{:keys [basis scale]} writer]
   (doto writer
     (.write (str scale))
-    (.write "")
+    (.write " ")
     (.write (str basis))))
