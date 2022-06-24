@@ -6,10 +6,15 @@
     [clojure.string :as string]))
 
 
+
 (comment
 
   (print-cause-trace *e)
 
+  ; test that a blade * its dual is the pseudoscalar
+  ; doesn't work the other way round
+  (in-ga 3 0 1
+    (map * basis-by-grade (map ∼ basis-by-grade)))
 
   (in-ga 3 0 1
     (∧

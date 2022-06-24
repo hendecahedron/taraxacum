@@ -123,6 +123,12 @@ the exterior product is of higher grade
 This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for macOS -- I used Ukele to create one and mapped the fn key to switch sources. For Linux, there'll be a way to do it.
 
 
+#### Implementation nodes
+
+My first implementation of this used multimethods but I eventually wanted my code to read as `(* a b)` not `(op * a b)` so 
+I used the experimental and slightly cumbersome dispatch system you'll see in the code. It's ok for experimenting with but I wouldn't do it
+that way again.
+
 #### References:
 
 
