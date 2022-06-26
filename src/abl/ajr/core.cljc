@@ -33,7 +33,7 @@
     (G {} basis scale))
   ([ga basis scale]
     (let [b (or (:bitmap basis) basis)]
-      (assoc (Blade. b (double scale) (grade b))
+      (assoc (Blade. b (bigdec scale) (grade b))
         :basis
         (or (get-in ga [:basis-by-bitmap b])
           (:basis basis))))))
@@ -140,12 +140,12 @@
 (defn <>
   "return the multivector by grade"
   [mv]
-  [(into {} (map (juxt :grade identity) mv))])
+  (into {} (map (juxt :grade identity) mv)))
 
 (defn <>r
   "return the grade r part of mv"
   [r mv]
-  [((<> mv) r)])
+  ((<> mv) r))
 
 (defn **
   {:doc ""}
@@ -455,12 +455,12 @@
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
      (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals (assoc a :scale 1.0)) :scale (*' (ds (assoc a :scale 1.0)) s))) mv))
+             (assoc (duals (G a 1.0M)) :scale (*' (ds (G a 1.0M)) s))) mv))
 
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals (assoc a :scale 1.0)) :scale (*' (ds (assoc a :scale 1.0)) s)))
+     (assoc (duals (G a 1.0)) :scale (*' (ds (G a 1.0)) s)))
 
    ^{:doc "Hodge dual ★"}
    ['★ :multivector]
@@ -478,14 +478,19 @@
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
-(defn with-specials [{b :basis-by-grade bio :basis-in-order :as ga}]
+(defn with-specials [{b :basis-by-grade bio :basis-in-order md :metric :as ga}]
   (let [
          I (peek b)
          I- (edalb I)
          S (first b)
        ]
     (assoc ga :specials
-      {'I I 'I- I- 'S S})))
+      (reduce
+        (fn [r [j [i m]]]
+          (if (== 0 m)
+            (assoc r (symbol (str "z" j)) (b (inc i)))
+            r))
+        {'I I 'I- I- 'S S} (map-indexed vector (filter (comp zero? peek) (map-indexed vector md)))))))
 
 ; the sign of the dual such that (= I (* x (∼ x)))
 (defn with-duals [{bbg :basis-by-grade duals :duals {:syms [*]} :ops :as ga}]
