@@ -104,7 +104,7 @@
 
 ; page 514 GA4CS
 (defn canonical-order [a b]
-  (if (== 0 (b& (bit-flips a b) 1)) +1.0 -1.0))
+  (if (== 0 (b& (bit-flips a b) 1)) +1M -1M))
 
 ; sadly depending on the order of numbers in that reduce
 ; annihilation isn't ensured
