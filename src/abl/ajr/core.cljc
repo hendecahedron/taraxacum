@@ -33,7 +33,7 @@
     (G {} basis scale))
   ([ga basis scale]
     (let [b (or (:bitmap basis) basis)]
-      (assoc (Blade. b (bigdec scale) (grade b))
+      (assoc (Blade. b (double scale) (grade b))
         :basis
         (or (get-in ga [:basis-by-bitmap b])
           (:basis basis))))))
@@ -45,13 +45,13 @@
     (partition 2 elements)))
 
 (defn edalb [{:keys [scale grade] :as blade}]
-  (G blade (*' scale (pow -1.0 (*' 0.5 grade (dec grade))))))
+  (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
 
 (defn <- [multivector]
   (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
-  (G blade (*' scale (pow -1.0 grade))))
+  (G blade (* scale (pow -1.0 grade))))
 
 (defn <_
   ([ga mv] (<_ mv))
@@ -59,7 +59,7 @@
     (mapv involute multivector)))
 
 (defn negate [{:keys [scale grade] :as blade}]
-  (G blade (*' scale -1.0)))
+  (G blade (* scale -1.0)))
 
 ; also called conjugation
 (defn negate-mv
@@ -298,38 +298,38 @@
   {
    [:no-such-op :independent :blade :blade 0 0]
    (fn g* [ga a b]
-     (update a :scale *' (:scale b)))
+     (update a :scale * (:scale b)))
 
    ['* :dependent :number :number 0 0]
    (fn g* [ga a b]
-     (*' a b))
+     (* a b))
 
    ['* :independent :blade :blade 0 0]
    (fn g* [ga a b]
-     (update a :scale *' (:scale b)))
+     (update a :scale * (:scale b)))
 
    ['* :independent :blade :blade 0 1]
    (fn g* [ga a b]
-     (update b :scale *' (:scale a)))
+     (update b :scale * (:scale a)))
 
    ['* :independent :blade :blade 1 0]
    (fn g* [ga a b]
-     (update a :scale *' (:scale b)))
+     (update a :scale * (:scale b)))
 
    ['* :independent :blade :blade 1 1]
    (fn g* [ga {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
-       (*' (canonical-order bma bmb) va vb)))
+       (* (canonical-order bma bmb) va vb)))
 
    ['* :dependent :blade :blade 1 1]
    (fn g* [{metric :metric :as ga} {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
-              s (*' (canonical-order bma bmb) va vb)]
+              s (* (canonical-order bma bmb) va vb)]
          (if (== 0 m)
            s
            (recur (inc i) (b> m 1)
-             (if (== 1 (b& m 1)) (*' s (metric i)) s))))))
+             (if (== 1 (b& m 1)) (* s (metric i)) s))))))
 
    ^{:doc "raw Geometric product"}
    ['*'' :dependent :multivector :multivector :grades :grades]
@@ -394,7 +394,7 @@
      (let [r (simplify ga (∼ (reduce ∧ (map ∼ mvs))))]
        (if (odd? (count mvs))
          r
-         (mapv (fn [b] (update b :scale *' -1)) r))))
+         (mapv (fn [b] (update b :scale * -1)) r))))
 
    ^{:doc ""
      :note ""}
@@ -455,12 +455,12 @@
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
      (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals (G a 1.0M)) :scale (*' (ds (G a 1.0M)) s))) mv))
+             (assoc (duals (G a 1)) :scale (* (ds (G a 1)) s))) mv))
 
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals (G a 1.0)) :scale (*' (ds (G a 1.0)) s)))
+     (assoc (duals (G a 1)) :scale (* (ds (G a 1)) s)))
 
    ^{:doc "Hodge dual ★"}
    ['★ :multivector]
