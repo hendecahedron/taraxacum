@@ -1,7 +1,5 @@
-(ns abl.ajr.core
-  "
-
-  "
+(ns ^{:doc "experimental Geometric Algebra library" :author "Matthew Chadwick"}
+  abl.ajr.core
   (:require
     [clojure.string :as string :refer [starts-with?]]
     [clojure.math :refer [pow sqrt signum]]
@@ -33,7 +31,7 @@
     (G {} basis scale))
   ([ga basis scale]
     (let [b (or (:bitmap basis) basis)]
-      (assoc (Blade. b (double scale) (grade b))
+      (assoc (Blade. b (if (ratio? scale) scale (bigdec scale)) (grade b))
         :basis
         (or (get-in ga [:basis-by-bitmap b])
           (:basis basis))))))
@@ -45,13 +43,13 @@
     (partition 2 elements)))
 
 (defn edalb [{:keys [scale grade] :as blade}]
-  (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
+  (G blade (*' scale (pow -1 (* 1/2 grade (dec grade))))))
 
 (defn <- [multivector]
   (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
-  (G blade (* scale (pow -1.0 grade))))
+  (G blade (*' scale (pow -1 grade))))
 
 (defn <_
   ([ga mv] (<_ mv))
@@ -59,7 +57,7 @@
     (mapv involute multivector)))
 
 (defn negate [{:keys [scale grade] :as blade}]
-  (G blade (* scale -1.0)))
+  (G blade (*' scale -1M)))
 
 ; also called conjugation
 (defn negate-mv
@@ -70,7 +68,7 @@
   (let [r (<- mv)
         [{s :scale}] (• r r)]
      (if s
-       (* r [(G S (/ 1.0 s))])
+       (* r [(G S (if (== s (.longValue s)) (/ 1 (.longValue s)) (/ 1 s)))])
        (throw (ex-info (str "non-invertable multivector ["
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
 
@@ -208,7 +206,7 @@
      (if (< d (dec n))
        (let [
               vd  (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; dth basis vector, zeroed out up to d
-              ed  [(update (vd d) :scale (fn [x] (let [sn (signum x)] (* -1.0 (if (zero? sn) 1.0 sn)))))]
+              ed  [(update (vd d) :scale (fn [x] (let [sn (signum x)] (*' -1M (if (zero? sn) 1M sn)))))]
               bi' (+ (⧄ vd) ed)                         ; bisector of unit v and ei
               bi  (if (seq bi') bi' ed)                 ; if v is ei then bisector will be empty
               hy  (∼ bi)                                ; reflection hyperplane
@@ -298,38 +296,38 @@
   {
    [:no-such-op :independent :blade :blade 0 0]
    (fn g* [ga a b]
-     (update a :scale * (:scale b)))
+     (update a :scale *' (:scale b)))
 
    ['* :dependent :number :number 0 0]
    (fn g* [ga a b]
-     (* a b))
+     (*' a b))
 
    ['* :independent :blade :blade 0 0]
    (fn g* [ga a b]
-     (update a :scale * (:scale b)))
+     (update a :scale *' (:scale b)))
 
    ['* :independent :blade :blade 0 1]
    (fn g* [ga a b]
-     (update b :scale * (:scale a)))
+     (update b :scale *' (:scale a)))
 
    ['* :independent :blade :blade 1 0]
    (fn g* [ga a b]
-     (update a :scale * (:scale b)))
+     (update a :scale *' (:scale b)))
 
    ['* :independent :blade :blade 1 1]
    (fn g* [ga {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
-       (* (canonical-order bma bmb) va vb)))
+       (*' (canonical-order bma bmb) va vb)))
 
    ['* :dependent :blade :blade 1 1]
    (fn g* [{metric :metric :as ga} {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
-              s (* (canonical-order bma bmb) va vb)]
+              s (*' (canonical-order bma bmb) va vb)]
          (if (== 0 m)
            s
            (recur (inc i) (b> m 1)
-             (if (== 1 (b& m 1)) (* s (metric i)) s))))))
+             (if (== 1 (b& m 1)) (*' s (metric i)) s))))))
 
    ^{:doc "raw Geometric product"}
    ['*'' :dependent :multivector :multivector :grades :grades]
@@ -394,7 +392,7 @@
      (let [r (simplify ga (∼ (reduce ∧ (map ∼ mvs))))]
        (if (odd? (count mvs))
          r
-         (mapv (fn [b] (update b :scale * -1)) r))))
+         (mapv (fn [b] (update b :scale *' -1M)) r))))
 
    ^{:doc ""
      :note ""}
@@ -455,12 +453,12 @@
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
      (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals (G a 1)) :scale (* (ds (G a 1)) s))) mv))
+             (assoc (duals (G a 1)) :scale (*' (ds (G a 1)) s))) mv))
 
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals (G a 1)) :scale (* (ds (G a 1)) s)))
+     (assoc (duals (G a 1)) :scale (*' (ds (G a 1)) s)))
 
    ^{:doc "Hodge dual ★"}
    ['★ :multivector]
@@ -527,7 +525,7 @@
    use :pqr to permute pqr e.g. [:r :q :p] so e0 is 0^2
   "
   ([{:keys [prefix base p q r pm qm rm md pqr]
-     :or {prefix "e" base 0 pm 1 qm -1 rm 0 pqr [:p :q :r]}}]
+     :or {prefix "e" base 0 pm 1M qm -1M rm 0M pqr [:p :q :r]}}]
     (let [md (or md (vec (apply concat (map {:p (repeat p pm) :q (repeat q qm) :r (repeat r rm)} pqr))))
           p (or p (count (filter (partial == 1) md)))
           q (or q (count (filter (partial == -1) md)))
