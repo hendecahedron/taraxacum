@@ -200,7 +200,7 @@
 
 (defn qr
   "a GA implementation of QR decomposition by Householder reflection"
-  ([{{:syms [+ - ⁻ * *- *0 • ∧ V ∼ • ⍣ ⧄]} :ops
+  ([{{:syms [+ - ⁻ * *' *0 • ∧ V ∼ • ⍣ ⧄]} :ops
     [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
    (loop [n (count fmv) d 0 r mvs q identity qs []]
      (if (< d (dec n))
@@ -239,7 +239,7 @@
   ([{basis :eigenvectors mmga :mmga :as ga} blade]
     (->basis mmga basis blade))
   ([{[e_] :basis-by-grade bbb :basis-in-order
-    {* '* ∧ '∧ *- '*- •∧ '•∧} :ops :as ga}
+    {* '* ∧ '∧ *' '*' •∧ '•∧} :ops :as ga}
     metric-mvs {:keys [bitmap scale] :as blade}]
    (loop [r [(G e_ scale)] i 0 b bitmap]
      (if (== b 0)
@@ -341,8 +341,8 @@
      (simplify ga (for [a a b b] (* ga a b))))
 
    ^{:doc "unsimplified Geometric product"}
-   ['*- :dependent :multivector :multivector :grades :grades]
-   (fn g*- [{{* '*} :ops :as ga} a b]
+   ['*' :dependent :multivector :multivector :grades :grades]
+   (fn g*' [{{* '*} :ops :as ga} a b]
      (vec (for [a a b b] (* a b))))
 
    ^{:doc "simplified Geometric product keep zeros"}
@@ -550,7 +550,7 @@
              :ops (ga-ops)
              }
           ; note ops must be in order of dependence because of the partial later
-          ops '[+ * 𝑒 ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
+          ops '[+ * 𝑒 ⍣ - _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
           ]
       (ga- m ops)))
   ([m ops]
@@ -612,7 +612,7 @@
   ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
     (let [
           prefix (name prefix)
-          ops '[+ * 𝑒 ⍣ -  _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
+          ops '[+ * 𝑒 ⍣ -  _ *'' *' *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
           specials '[I I- S]
            opz (into #{} ops)
            o (complement opz)
