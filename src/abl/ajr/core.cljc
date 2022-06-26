@@ -115,7 +115,7 @@
 (defn consolidate-blades [ga]
   (comp
     (partition-by :bitmap)
-    (map (fn [[fb :as bb]] (G ga fb (reduce + (map :scale bb)))))))
+    (map (fn [[fb :as blades]] (G ga fb (reduce + (map :scale blades)))))))
 
 (def int-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag)))))
 (def ext-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg)))))
