@@ -33,7 +33,7 @@
     (G {} basis scale))
   ([ga basis scale]
     (let [b (or (:bitmap basis) basis)]
-      (assoc (Blade. b (double scale) (grade b))
+      (assoc (Blade. b scale (grade b))
         :basis
         (or (get-in ga [:basis-by-bitmap b])
           (:basis basis))))))
@@ -45,13 +45,15 @@
     (partition 2 elements)))
 
 (defn edalb [{:keys [scale grade] :as blade}]
-  (G blade (* scale (pow -1.0 (* 0.5 grade (dec grade))))))
+  (let [n (* 1/2 grade (dec grade))
+        r (if (== 0 n) 1 (last (take n (cycle [-1 1]))))]
+    (G blade (* scale r))))
 
 (defn <- [multivector]
   (mapv edalb multivector))
 
 (defn involute [{:keys [scale grade] :as blade}]
-  (G blade (* scale (pow -1.0 grade))))
+  (G blade (* scale (pow -1 grade))))
 
 (defn <_
   ([ga mv] (<_ mv))
@@ -59,7 +61,7 @@
     (mapv involute multivector)))
 
 (defn negate [{:keys [scale grade] :as blade}]
-  (G blade (* scale -1.0)))
+  (G blade (* scale -1)))
 
 ; also called conjugation
 (defn negate-mv
@@ -70,14 +72,14 @@
   (let [r (<- mv)
         [{s :scale}] (• r r)]
      (if s
-       (* r [(G S (/ 1.0 s))])
+       (* r [(G S (/ 1 s))])
        (throw (ex-info (str "non-invertable multivector ["
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
 
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
     (let [[{l :scale}] (• mv mv)
-           d (if l (sqrt (abs l)) 1)] (mapv (fn [e] (G e (/ (:scale e) d))) mv))
+           d (/ 1 (if l (* (abs l) (abs l)) 1))] (mapv (fn [e] (G e (* (:scale e) d))) mv))
      mv))
 
 ; todo check that the bitmaps made by xoring here are < count bases
@@ -106,7 +108,7 @@
 
 ; page 514 GA4CS
 (defn canonical-order [a b]
-  (if (== 0 (b& (bit-flips a b) 1)) +1.0 -1.0))
+  (if (== 0 (b& (bit-flips a b) 1)) +1 -1))
 
 ; sadly depending on the order of numbers in that reduce
 ; annihilation isn't ensured
@@ -178,7 +180,7 @@
   (simplify ga
     (map
        (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
-         (if (== g (Math/abs (- bg ag))) p (G e_ 0)))
+         (if (== g (abs (- bg ag))) p (G e_ 0)))
        (for [{ag :grade :as a} mva {bg :grade :as b} mvb :when (and (> ag 0) (> bg 0))]
          [a b (* a b)]))))
 
