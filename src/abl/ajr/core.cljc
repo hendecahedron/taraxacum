@@ -79,7 +79,7 @@
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
     (let [[{l :scale}] (• mv mv)
-           d (/ 1 (if l (* (abs l) (abs l)) 1))] (mapv (fn [e] (G e (* (:scale e) d))) mv))
+           d (/ 1 (abs l))] (mapv (fn [e] (G e (* (:scale e) d))) mv))
      mv))
 
 ; todo check that the bitmaps made by xoring here are < count bases
