@@ -46,7 +46,7 @@
 
 (defn edalb [{:keys [scale grade] :as blade}]
   (let [n (* 1/2 grade (dec grade))
-        r (if (== 0 n) 1M (last (take n (cycle [-1M 1M]))))]
+        r (if (== 0 n) 1N (last (take n (cycle [-1N 1N]))))]
     (G blade (*' scale r))))
 
 (defn <- [multivector]
@@ -61,7 +61,7 @@
     (mapv involute multivector)))
 
 (defn negate [{:keys [scale grade] :as blade}]
-  (G blade (* scale -1M)))
+  (G blade (* scale -1N)))
 
 ; also called conjugation
 (defn negate-mv
@@ -71,9 +71,8 @@
 (defn inverse [{{:syms [• *]} :ops {S 'S} :specials :as ga} mv]
   (let [r (<- mv)
         [{s :scale}] (• r r)]
-        (println ">" s)
      (if s
-       (*' r [(G S (/ 1M s))])
+       (* r [(G S (/ 1N s))])
        (throw (ex-info (str "non-invertable multivector ["
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
 
@@ -94,10 +93,10 @@
        (fn [r components]
          (let [n (symbol (str prefix (string/join "" (map (fn [[i]] (+ start i)) components))))]
           (assoc r n
-            (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1M)
+            (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1N)
               :basis n))))
-       {(symbol (str prefix "_")) (assoc (G 0 1M) :basis (symbol (str prefix "_")))}
-       (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1M)]) (range n))]
+       {(symbol (str prefix "_")) (assoc (G 0 1N) :basis (symbol (str prefix "_")))}
+       (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1N)]) (range n))]
           (mapcat (fn [k] (x/combinations b k))
             (range 1 (inc n)))))))
 
@@ -109,7 +108,7 @@
 
 ; page 514 GA4CS
 (defn canonical-order [a b]
-  (if (== 0 (b& (bit-flips a b) 1)) +1M -1M))
+  (if (== 0 (b& (bit-flips a b) 1)) +1N -1N))
 
 ; sadly depending on the order of numbers in that reduce
 ; annihilation isn't ensured
@@ -329,7 +328,7 @@
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
               s (*' (canonical-order bma bmb) va vb)]
-              (println ">>" va vb (canonical-order bma bmb) s i (metric i))
+         ;(println ">>" i (metric i))
          (if (== 0 m)
            s
            (recur (inc i) (b> m 1)
@@ -459,12 +458,12 @@
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
      (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals (G a 1M)) :scale (* (ds (G a 1M)) s))) mv))
+             (assoc (duals (G a 1N)) :scale (* (ds (G a 1N)) s))) mv))
 
    ^{:doc "Dual"}
    ['∼ Blade]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
-     (assoc (duals (G a 1M)) :scale (* (ds (G a 1M)) s)))
+     (assoc (duals (G a 1N)) :scale (* (ds (G a 1N)) s)))
 
    ^{:doc "Hodge dual ★"}
    ['★ :multivector]
@@ -531,7 +530,7 @@
    use :pqr to permute pqr e.g. [:r :q :p] so e0 is 0^2
   "
   ([{:keys [prefix base p q r pm qm rm md pqr]
-     :or {prefix "e" base 0 pm 1M qm -1M rm 0M pqr [:p :q :r]}}]
+     :or {prefix "e" base 0 pm 1N qm -1N rm 0N pqr [:p :q :r]}}]
     (let [md (or md (vec (apply concat (map {:p (repeat p pm) :q (repeat q qm) :r (repeat r rm)} pqr))))
           p (or p (count (filter (partial == 1) md)))
           q (or q (count (filter (partial == -1) md)))
@@ -578,7 +577,7 @@
   ([prefix base p q r]
     (ga {:prefix prefix :base base :p p :q q :r r}))
   ([{:keys [prefix base p q r pm qm rm md mm mmga]
-     :or {prefix "e" base 0 pm 1M qm -1M rm 0M} :as params}]
+     :or {prefix "e" base 0 pm 1N qm -1N rm 0N} :as params}]
     (let [
            ; if creating a GA from a metric-multivectors, precompute their eigendecomposition
            ; now for later changes of basis. Such a change of basis needs a GA itself,
