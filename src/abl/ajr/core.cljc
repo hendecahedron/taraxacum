@@ -102,6 +102,9 @@
       (mapv (fn [e] (update e :scale * d)) mv))
      mv))
 
+(defn scale [ga mv s]
+  (mapv (fn [b] (update b :scale * s)) mv))
+
 ; todo check that the bitmaps made by xoring here are < count bases
 ; also this is only good for small numbers of dimensions
 ; soon need to work out how to manage large spaces
