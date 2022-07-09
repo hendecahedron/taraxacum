@@ -76,10 +76,30 @@
        (throw (ex-info (str "non-invertable multivector ["
                          (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
 
+(defn rsqrt
+  ([x i n]
+    (if (== i n)
+      x
+      (/ (- x 1)
+         (+ 2 (rsqrt x (inc i) n)))))
+  ([x n]
+   (if (== x 1)
+     1
+     (- (/ (- x 1) (rsqrt x 0 n)) 1)))
+  ([x] (rsqrt x 16)))
+
+(defn length
+  ([{{:syms [•]} :ops :as ga} mv]
+    (length ga mv 16))
+  ([{{:syms [•]} :ops :as ga} mv n]
+    (if (seq mv)
+       (let [[{l :scale}] (• mv mv)] (if l (rsqrt l n) 0))
+       0)))
+
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
-    (let [[{l :scale}] (• mv mv)
-           d (/ 1 l)] (mapv (fn [e] (G e (* (:scale e) (:scale e) d))) mv))
+    (let [d (/ 1 (length ga mv))]
+      (mapv (fn [e] (update e :scale * d)) mv))
      mv))
 
 ; todo check that the bitmaps made by xoring here are < count bases
