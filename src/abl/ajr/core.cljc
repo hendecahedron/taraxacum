@@ -143,17 +143,27 @@
 
 (def remove-scalars-xf (remove (comp zero? :grade)))
 
+(def remove0s (remove (comp zero? :scale)))
+
 (defn consolidate&remove0s [ga]
   (comp
     (consolidate-blades ga)
-    (remove (comp zero? :scale))))
+    remove0s))
+
+(defn consolidate [mv]
+  (vec
+    (vals
+       (reduce
+         (fn [r {:keys [bitmap scale] :as b}]
+           (update r bitmap (fn [x] (if x (update x :scale + scale) b))))
+         {} mv))))
 
 (defn simplify- [xf blades]
-  (into [] xf (sort-by :bitmap blades)))
+  (consolidate (sequence xf blades)))
 
 (defn simplify
   ([ga blades]
-    (simplify- (consolidate&remove0s ga) blades)))
+   (consolidate (simplify- remove0s blades))))
 
 (defn simplify0 [ga blades]
   (simplify- (consolidate-blades ga) blades))
@@ -181,7 +191,7 @@
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- bg ag))))
       (map peek)
-      (consolidate&remove0s ga))
+      remove0s)
     (** ga mva mvb)))
 
 (defn ⌊
@@ -191,7 +201,7 @@
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- ag bg))))
       (map peek)
-      (consolidate&remove0s ga))
+      remove0s)
     (** ga mva mvb)))
 
 ; left contraction or inner product §3.5.3
@@ -377,9 +387,9 @@
    ^{:doc "Interior and exterior products"}
    ['•∧ :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
-     (let [gp (sort-by (comp :bitmap peek) (*'' mva mvb))]
-       {:• (simplify- (comp int-xf (map peek) (consolidate&remove0s ga)) gp)
-        :∧ (simplify- (comp ext-xf (map peek) (consolidate&remove0s ga)) gp)}))
+     (let [gp (*'' mva mvb)]
+       {:• (simplify- (comp int-xf (map peek) remove0s) gp)
+        :∧ (simplify- (comp ext-xf (map peek) remove0s) gp)}))
 
    ^{:doc "Interior product ·"}
    ['•' :dependent :multivector :multivector :grades :grades]

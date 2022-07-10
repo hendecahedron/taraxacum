@@ -17,10 +17,13 @@
     (map * basis-by-grade (map ∼ basis-by-grade)))
 
   (in-ga 3 0 1
-    (∧
+    (•∧
       [1 e0 2 e1 3 e2 1 e3]
-      [4 e0 3 e1 2 e2 1 e3]
+      ;[4 e0 3 e1 2 e2 1 e3]
       [-1 e0 -7 e1 1 e2 1 e3]))
+
+  (in-ga 3 0 1
+    (consolidate [-5 e2 1 e0 3 e2 0.5 e1 0.7 e0]))
 
   ; composition two reflections
   (in-ga 2 0 1
