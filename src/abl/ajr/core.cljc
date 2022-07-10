@@ -133,10 +133,6 @@
 (defn canonical-order [a b]
   (if (== 0 (b& (bit-flips a b) 1)) +1N -1N))
 
-; sadly depending on the order of numbers in that reduce
-; annihilation isn't ensured
-; leading to, for example,
-; tiny bivectors after multiplying odd numbers of planes in PGA
 (defn consolidate-blades [ga]
   (comp
     (partition-by :bitmap)
