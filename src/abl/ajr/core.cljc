@@ -129,12 +129,16 @@
 (def int-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag)))))
 (def ext-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg)))))
 
-(defn zeroish [x]
-  (< (abs x) 1e-10))
+; this is temporary I promise myself
+(defn tiny? [x]
+  (< (abs x) 1e-6))
+
+(defn approx-same [a b]
+  (every? tiny? (map - (map :scale a) (map :scale b))))
 
 (def remove-scalars-xf (remove (comp zero? :grade)))
 
-(def remove0s (remove (comp zeroish :scale)))
+(def remove0s (remove (comp tiny? :scale)))
 
 (defn consolidate&remove0s [ga]
   (comp
