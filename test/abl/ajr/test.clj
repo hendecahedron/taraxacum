@@ -91,8 +91,6 @@
         (iterate (partial ⍣ (m (rpi 8.0) (p 0.0 3.0)))
           (p 1.0 1.0)))))
 
-
-
   (in-ga 3 0 0
     (qr ga
       [
@@ -100,9 +98,16 @@
         [4 e0 5 e1 6 e2]
         [7 e0 8 e1 9 e2]]))
 
+  (in-ga 3 0 0
+    (qr ga
+      [
+        [1 e0 4 e1 7 e2]
+        [2 e0 5 e1 8 e2]
+        [3 e0 6 e1 9 e2]]))
+
 
   (in-ga 3 0 0
-    (* 2.0 3.0))
+    (:metric ga))
 
   ; table 5.2 Gunn - correct results
   (in-ga 2 0 1

@@ -81,7 +81,7 @@
     (length ga mv 16))
   ([{{:syms [•]} :ops :as ga} mv n]
     (if (seq mv)
-       (let [[{l :scale}] (• mv mv)] (if l (sqrt l) 0))
+       (let [[{l :scale}] (• mv mv)] (if l (sqrt (abs l)) 0))
        0)))
 
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
@@ -153,15 +153,15 @@
            (update r bitmap (fn [x] (if x (update x :scale + scale) b))))
          {} mv))))
 
-(defn simplify- [xf blades]
-  (consolidate (sequence xf blades)))
+(defn simplify- [xf mv]
+  (into [] xf mv))
 
 (defn simplify
-  ([ga blades]
-   (consolidate (simplify- remove0s blades))))
+  ([ga mv]
+   (into [] remove0s (consolidate mv))))
 
-(defn simplify0 [ga blades]
-  (simplify- (consolidate-blades ga) blades))
+(defn simplify0 [ga mv]
+  (consolidate mv))
 
 (defn <>
   "return the multivector by grade"
@@ -352,7 +352,6 @@
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
               s (* (canonical-order bma bmb) va vb)]
-         ;(println ">>" i (metric i))
          (if (== 0 m)
            s
            (recur (inc i) (b> m 1)
@@ -366,8 +365,8 @@
    ; see 22.3.1 for future optimizations
    ^{:doc "Geometric product" :e.g. '(* [1 v1 2 v2] [3 v0 4 v2])}
    ['* :dependent :multivector :multivector :grades :grades]
-   (fn g* [{{* '*} :ops :as ga} a b]
-     (simplify ga (for [a a b b] (* ga a b))))
+   (fn g* [{{* '*} :ops :as ga} mva mvb]
+     (simplify ga (for [a mva b mvb] (* ga a b))))
 
    ^{:doc "unsimplified Geometric product"}
    ['*- :dependent :multivector :multivector :grades :grades]
@@ -383,8 +382,8 @@
    ['•∧ :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
      (let [gp (*'' mva mvb)]
-       {:• (simplify- (comp int-xf (map peek) remove0s) gp)
-        :∧ (simplify- (comp ext-xf (map peek) remove0s) gp)}))
+       {:• (consolidate (simplify- (comp int-xf (map peek) remove0s) gp))
+        :∧ (consolidate (simplify- (comp ext-xf (map peek) remove0s) gp))}))
 
    ^{:doc "Interior product ·"}
    ['•' :dependent :multivector :multivector :grades :grades]
@@ -423,8 +422,7 @@
          r
          (mapv (fn [b] (update b :scale * -1)) r))))
 
-   ^{:doc ""
-     :note ""}
+   ^{:doc ""}
    ['h∨ :dependent :multivector :multivector :grades :grades]
    (fn h∨ [{{:syms [* • ∼]} :ops :as ga} a b]
      ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
@@ -481,8 +479,10 @@
    ['∼ :multivector]
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
      ; (⌋ ga a [I-])
-     (mapv (fn [{bm :bitmap s :scale :as a}]
-             (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s))) mv))
+     (mapv
+       (fn dual-component [{bm :bitmap s :scale :as a}]
+         ;(println "  dual of " a)
+         (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s))) mv))
 
    ^{:doc "Dual"}
    ['∼ Blade]
@@ -505,7 +505,9 @@
    })
 
 ; p.80 the inverse of the pseudoscalar is simply the reverse
-(defn with-specials [{b :basis-by-grade bio :basis-in-order md :metric :as ga}]
+(defn with-specials
+  "Specials for want of a better name"
+  [{b :basis-by-grade bio :basis-in-order md :metric :as ga}]
   (let [
          I (peek b)
          I- (edalb I)
@@ -549,7 +551,7 @@
 
    Euclidean - all diagonal elements are 1
    Diagonal - metric factors only along diagonal
-   Othonormal
+   Othonormal -
 
    use :pqr to permute pqr e.g. [:r :q :p] so e0 is 0^2
   "
