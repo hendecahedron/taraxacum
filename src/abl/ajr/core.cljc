@@ -146,12 +146,11 @@
     remove0s))
 
 (defn consolidate [mv]
-  (vec
-    (vals
-       (reduce
-         (fn [r {:keys [bitmap scale] :as b}]
-           (update r bitmap (fn [x] (if x (update x :scale + scale) b))))
-         {} mv))))
+  (vals
+    (reduce
+      (fn [r {:keys [bitmap scale] :as b}]
+        (update r bitmap (fn [x] (if x (update x :scale + scale) b))))
+      {} mv)))
 
 (defn simplify- [xf mv]
   (into [] xf mv))
@@ -382,18 +381,18 @@
    ['•∧ :dependent :multivector :multivector :grades :grades]
    (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
      (let [gp (*'' mva mvb)]
-       {:• (consolidate (simplify- (comp int-xf (map peek) remove0s) gp))
-        :∧ (consolidate (simplify- (comp ext-xf (map peek) remove0s) gp))}))
+       {:• (into [] remove0s (consolidate (simplify- (comp int-xf (map peek)) gp)))
+        :∧ (into [] remove0s (consolidate (simplify- (comp ext-xf (map peek)) gp)))}))
 
    ^{:doc "Interior product ·"}
-   ['•' :dependent :multivector :multivector :grades :grades]
-   (fn ip [{{:syms [•∧]} :ops :as ga} a b]
-     (:• (•∧ a b)))
+   ['⌋• :dependent :multivector :multivector :grades :grades]
+   (fn left-contraction [{{:syms [•∧]} :ops :as ga} a b]
+     (⌋• ga a b))
 
    ^{:doc "Interior product"}
    ['• :dependent :multivector :multivector :grades :grades]
-   (fn ip [{{:syms [*]} :ops :as ga} a b]
-     (⌋• ga a b))
+   (fn ip [{{:syms [•∧]} :ops :as ga} a b]
+     (:• (•∧ a b)))
 
    ^{:doc "Exterior product or meet, largest common subspace, intersection"}
    ['∧ :dependent :multivector :multivector :grades :grades]
