@@ -106,7 +106,7 @@
           (assoc r n
             (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1.0)
               :basis n))))
-       {(symbol (str prefix "_")) (assoc (G 0 1N) :basis (symbol (str prefix "_")))}
+       {(symbol (str prefix "_")) (assoc (G 0 1.0) :basis (symbol (str prefix "_")))}
        (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1.0)]) (range n))]
           (mapcat (fn [k] (x/combinations b k))
             (range 1 (inc n)))))))
