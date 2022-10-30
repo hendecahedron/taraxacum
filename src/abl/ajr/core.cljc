@@ -121,6 +121,9 @@
 (defn canonical-order [a b]
   (if (== 0 (b& (bit-flips a b) 1)) +1.0 -1.0))
 
+(defn <=grade [max]
+  (filter (fn [{g :grade}] (<= g max))))
+
 (defn consolidate-blades [ga]
   (comp
     (partition-by :bitmap)
@@ -460,7 +463,7 @@
    ^{:doc "Sandwich product"}
    ['⍣ :dependent :multivector :multivector :grades :grades]
    (fn |*| [{{* '*} :ops :as ga} r mv]
-     (reduce * [(<- r) mv r]))
+     (reduce * [r mv (<- r)]))
 
    ^{:doc "Inverse"}
    ['⁻ :multivector]
