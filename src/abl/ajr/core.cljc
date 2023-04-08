@@ -1,10 +1,9 @@
-(ns abl.ajr.core
-  "
-
-  "
+(ns ^{:doc "Geometric Algebra (first sketch)"
+      :author "Matthew Chadwick"}
+  abl.ajr.core
   (:require
     [clojure.string :as string :refer [starts-with?]]
-    [clojure.math :refer [pow sqrt signum]]
+    [clojure.math :as maths :refer [pow sqrt signum]]
     [clojure.math.combinatorics :as x]
     [clojure.walk :as w]))
 
@@ -414,9 +413,8 @@
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
      (simplify ga (∼ (∧ (∼ b) (∼ a)))))
 
-   ; I'll think of a more elegant way to handle this later
-   ^{:doc "Regressive product or join, smallest common superspace, union"
-     :note "Gunn arXiv:1501.06511v8 §3.1"}
+   ; remove this impl
+   ^{:doc "remove"}
    ['∨ :multivectors]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} mvs]
      (let [r (simplify ga (∼ (reduce ∧ (map ∼ mvs))))]
@@ -574,7 +572,8 @@
              :r r
              :metric md
              :basis bases
-             :size (pow 2 d)
+             :dimensions d
+             :size (int (pow 2 d))
              :zv zv
              :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
              :duals (zipmap bbg (rseq bbg))
@@ -635,6 +634,7 @@
   (and (list? f)
     (every? (fn [x] (bladelike x)) f)))
 
+; TODO: function names beginning with 'e' don't work
 (defmacro in-ga
   ([prefix p q r body]
     `(in-ga {:prefix ~prefix :base 0 :p ~p :q ~q :r ~r} ~body))
