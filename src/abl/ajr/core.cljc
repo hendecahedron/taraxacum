@@ -85,7 +85,7 @@
 
 (defn normalize [{{:syms [•]} :ops :as ga} mv]
   (if (seq mv)
-    (let [d (/ 1 (length ga mv))]
+    (let [l (length ga mv) d (if (== 0 l) 1 (/ 1 l))]
       (mapv (fn [e] (update e :scale * d)) mv))
      mv))
 
@@ -111,10 +111,11 @@
             (range 1 (inc n)))))))
 
 (defn bit-flips [a b]
-  (reduce +
-    (map (fn [x] (Long/bitCount (b& x b)))
-      (take-while (fn [x] (> x 0))
-        (iterate (fn [x] (b> x 1)) (b> a 1))))))
+  (->> (b> a 1)
+    (iterate (fn [x] (b> x 1)))
+    (take-while (fn [x] (> x 0)))
+    (map (fn [x] (Long/bitCount (b& x b))))
+    (reduce +)))
 
 ; page 514 GA4CS
 (defn canonical-order [a b]
@@ -229,14 +230,14 @@
 
 (defn qr
   "a GA implementation of QR decomposition by Householder reflection"
-  ([{{:syms [+ - ⁻ * *- *0 • ∧ V ∼ • ⍣ ⧄]} :ops
+  ([{{:syms [+ - ⁻ * *- *0 • ∧ V ∼ • ⍣ ⃠]} :ops
     [e_ e0 :as bg] :basis-by-grade :as ga} [fmv :as mvs]]
    (loop [n (count fmv) d 0 r mvs q identity qs []]
      (if (< d (dec n))
        (let [
               vd  (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; dth basis vector, zeroed out up to d
               ed  [(update (vd d) :scale (fn [x] (let [sn (signum x)] (* -1.0 (if (zero? sn) 1.0 sn)))))]
-              bi' (+ (⧄ vd) ed)                         ; bisector of unit v and ei
+              bi' (+ (⃠ vd) ed)                         ; bisector of unit v and ei
               bi  (if (seq bi') bi' ed)                 ; if v is ei then bisector will be empty
               hy  (∼ bi)                                ; reflection hyperplane
               qd  (fn [x] (* (- hy) x (⁻ hy)))
@@ -447,11 +448,11 @@
      (let [[{max :scale}] (• a (<- a))
            scale (loop [s (if (> max 1) (b< 1 1) 1) m max]
                    (if (> m 1) (recur (b< s 1) (/ m 2)) s))
-           scaled (* a [(G (basis G_) (/ 1 scale))])
+           scaled (* a [(G G_ (/ 1 scale))])
            r (simplify ga (reduce
                             (fn exp1 [r i]
-                              (into r (* [(peek r)] (* scaled [(G (basis G_) (/ 1 i))]))))
-                            [(basis G_)] (range 1 16)))
+                              (into r (* [(peek r)] (* scaled [(G G_ (/ 1 i))]))))
+                            [G_] (range 1 16)))
            ]
        (loop [r r s scale]
          (if (> s 1)
@@ -481,7 +482,8 @@
      ; (⌋ ga a [I-])
      (mapv
        (fn dual-component [{bm :bitmap s :scale :as a}]
-         ;(println "  dual of " a)
+         (when (nil? (duals (G a 1.0)))
+           (println "  no dual of " a " in this algebra"))
          (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s))) mv))
 
    ^{:doc "Dual"}
@@ -500,7 +502,7 @@
      (* (edalb x) I))
 
    ^{:doc "Normalize"}
-   ['⧄ :multivector]
+   ['⃠ :multivector]
    normalize
    })
 
@@ -509,10 +511,10 @@
   "Specials for want of a better name"
   [{b :basis-by-grade bio :basis-in-order md :metric :as ga}]
   (let [
-         I (peek b)
-         I- (edalb I)
-         S (first b)
-       ]
+        I (peek b)
+        I- (edalb I)
+        S (first b)
+        ]
     (assoc ga :specials
       (reduce
         (fn [r [j [i m]]]
@@ -534,19 +536,22 @@
 (defn with-help [{ops :ops :as a-ga}]
   (-> a-ga
     (assoc :help
-       (into {} (map (juxt first (comp :doc meta)) (filter meta (keys ops)))))
+      (into {} (map (juxt first (comp :doc meta)) (filter meta (keys ops)))))
     (assoc :examples
-       (into {} (map (juxt first (comp :e.g. meta)) (filter meta (keys ops)))))))
+      (into {} (map (juxt first (comp :e.g. meta)) (filter meta (keys ops)))))))
 
 (defn with-eigendecomposition [{mm :metric-mvs :as ga}]
   (if mm
     (let [{:keys [eigenvalues eigenvectors]} (eigendecompose ga)]
-       (assoc ga :eigenvalues eigenvalues :eigenvectors eigenvectors))
-     ga))
+      (assoc ga :eigenvalues eigenvalues :eigenvectors eigenvectors))
+    ga))
 
 (defn ga-
-  "Create a new GA from the given params:
+  "
+   Create a new GA from the given params:
+
    md - metric diagonal
+
    Metrics:
 
    Euclidean - all diagonal elements are 1
@@ -557,38 +562,36 @@
   "
   ([{:keys [prefix base p q r pm qm rm md pqr]
      :or {prefix "e" base 0 pm 1 qm -1 rm 0 pqr [:p :q :r]}}]
-    (let [md (or md (vec (apply concat (map {:p (repeat p pm) :q (repeat q qm) :r (repeat r rm)} pqr))))
-          p (or p (count (filter (partial == 1) md)))
-          q (or q (count (filter (partial == -1) md)))
-          r (or r (count (filter (partial == 0) md)))
-          d (+ p q r)
-          bases (bases-of prefix base d)
-          bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
-          bbg (vec (sort compare-blades (vals bases)))
-          zv (vec (repeat (count bases) 0))
-          m {
-             :p p
-             :q q
-             :r r
-             :metric md
-             :basis bases
-             :dimensions d
-             :size (int (pow 2 d))
-             :zv zv
-             :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
-             :duals (zipmap bbg (rseq bbg))
-             :basis-by-grade bbg
-             :basis-in-order bio
-             :ops (ga-ops)
-             }
-          ; note ops must be in order of dependence because of the partial later
-          ops '[+ * 𝑒 ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
-          ]
-      (ga- m ops)))
+   (let [md (or md (vec (apply concat (map {:p (repeat p pm) :q (repeat q qm) :r (repeat r rm)} pqr))))
+         p (or p (count (filter (partial == 1) md)))
+         q (or q (count (filter (partial == -1) md)))
+         r (or r (count (filter (partial == 0) md)))
+         d (+ p q r)
+         bases (bases-of prefix base d)
+         bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
+         bbg (vec (sort compare-blades (vals bases)))
+         zv (vec (repeat (count bases) 0))
+         m {
+            :p p :q q :r r
+            :metric md
+            :basis bases
+            :dimensions d
+            :size (int (pow 2 d))
+            :zv zv
+            :basis-by-bitmap (reduce (fn [r [n b]] (assoc r (:bitmap b) n)) zv bases)
+            :duals (zipmap bbg (rseq bbg))
+            :basis-by-grade bbg
+            :basis-in-order bio
+            :ops (ga-ops)
+            }
+         ; note ops must be in order of dependence because of the partial later
+         ops '[+ * ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ 𝑒 op]
+         ]
+     (ga- m ops)))
   ([m ops]
-    (ga- m
-      (reduce
-        (fn [r op] (assoc-in r [:ops op] (compare-G op))) m ops) ops))
+   (ga- m
+     (reduce
+       (fn [r op] (assoc-in r [:ops op] (compare-G op))) m ops) ops))
   ([m g ops]
    (reduce
      (fn [r op]
@@ -598,29 +601,29 @@
 
 (defn ga
   ([p q r]
-    (ga "e" p q r))
+   (ga "e" p q r))
   ([prefix p q r]
-    (ga {:prefix prefix :p p :q q :r r}))
+   (ga {:prefix prefix :p p :q q :r r}))
   ([prefix base p q r]
-    (ga {:prefix prefix :base base :p p :q q :r r}))
+   (ga {:prefix prefix :base base :p p :q q :r r}))
   ([{:keys [prefix base p q r pm qm rm md mm mmga]
      :or {prefix "e" base 0 pm 1 qm -1 rm 0} :as params}]
-    (let [
-           ; if creating a GA from a metric-multivectors, precompute their eigendecomposition
-           ; now for later changes of basis. Such a change of basis needs a GA itself,
-           ; so either use the one supplied or create one
-           {:keys [eigenvalues eigenvectors]} (if mm (eigendecompose mmga mm) nil)
-           g (ga- (if mm (assoc params :md (mapv :scale eigenvalues)) params))
-           g' (assoc g :eigenvectors eigenvectors :eigenvalues eigenvalues
-                       :metric-mvs mm :mmga (or mmga (ga- {:prefix 'b :p (count mm) :q 0 :r 0})))
+   (let [
+         ; if creating a GA from a metric-multivectors, precompute their eigendecomposition
+         ; now for later changes of basis. Such a change of basis needs a GA itself,
+         ; so either use the one supplied or create one
+         {:keys [eigenvalues eigenvectors]} (if mm (eigendecompose mmga mm) nil)
+         g (ga- (if mm (assoc params :md (mapv :scale eigenvalues)) params))
+         g' (assoc g :eigenvectors eigenvectors :eigenvalues eigenvalues
+              :metric-mvs mm :mmga (or mmga (ga- {:prefix 'b :p (count mm) :q 0 :r 0})))
          ]
-      g')))
+     g')))
 
 (defn multivector? [f]
   (and
     (or
-       (and (list? f) (every? (fn [[c b]] (and (number? c) (and (symbol? b) (nil? (namespace b))))) (partition 2 f)))
-       (and (vector? f) (every? (fn [[c b]] (and (or (number? c) (list? c)) (symbol? b))) (partition 2 f))))
+      (and (list? f) (every? (fn [[c b]] (and (number? c) (and (symbol? b) (nil? (namespace b))))) (partition 2 f)))
+      (and (vector? f) (every? (fn [[c b]] (and (or (number? c) (list? c)) (symbol? b))) (partition 2 f))))
     (== 0 (mod (count f) 2))))
 
 (defn bladelike [x]
@@ -637,22 +640,22 @@
 ; TODO: function names beginning with 'e' don't work
 (defmacro in-ga
   ([prefix p q r body]
-    `(in-ga {:prefix ~prefix :base 0 :p ~p :q ~q :r ~r} ~body))
+   `(in-ga {:prefix ~prefix :base 0 :p ~p :q ~q :r ~r} ~body))
   ([prefix base p q r body]
-    `(in-ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r} ~body))
+   `(in-ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r} ~body))
   ([p q r body]
-    `(in-ga {:prefix e :base 0 :p ~p :q ~q :r ~r} ~body))
+   `(in-ga {:prefix e :base 0 :p ~p :q ~q :r ~r} ~body))
   ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
-    (let [
-          prefix (name prefix)
-          ops '[+ * 𝑒 ⍣ -  _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⧄ op]
-          specials '[I I- S]
-           opz (into #{} ops)
-           o (complement opz)
-           s (filter symbol? (tree-seq seqable? seq body))
-           e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (starts-with? (name i) prefix)
-                                                                    (and (namespace i) (starts-with? (namespace i) prefix)))) s)))
-           e (mapv (fn [x] (if-let [{b :basis} (bladelike x)] b x)) e)
+   (let [
+         prefix (name prefix)
+         ops '[+ * 𝑒 ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ op]
+         specials '[I I- S]
+         opz (into #{} ops)
+         o (complement opz)
+         s (filter symbol? (tree-seq seqable? seq body))
+         e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (starts-with? (name i) prefix)
+                                                                  (and (namespace i) (starts-with? (namespace i) prefix)))) s)))
+         e (mapv (fn [x] (if-let [{b :basis} (bladelike x)] b x)) e)
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~ops} :ops
@@ -676,6 +679,8 @@
                                    `(G ~b ~c))) f)
                  :else f))
                body)))))
+
+; abl-ajr   al-jabr
 
 (defmethod print-method Blade [{:keys [basis scale]} writer]
   (doto writer
