@@ -29,7 +29,7 @@ the grade is the number of independent bases comprising the blade, the bitmap is
 
 create a blade directly`(Blade. bitmap scale grade)`or with`G`(for Geometric number)
 
-`(require 'abl.ajr.core)`
+`(require 'hendecahedron.taraxacum.core)`
 
 `(G blade-or-bitmap scale)`
 

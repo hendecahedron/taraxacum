@@ -1,6 +1,6 @@
-(ns ^{:doc "Geometric Algebra (first sketch) Taraxacum"
+(ns ^{:doc "Geometric Algebra (first sketch)"
       :author "Matthew Chadwick"}
-  abl.ajr.core
+  hendecahedron.taraxacum.core
   (:require
     [clojure.string :as string :refer [starts-with?]]
     [clojure.math :as maths :refer [pow sqrt signum]]
