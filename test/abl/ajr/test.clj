@@ -9,6 +9,8 @@
 
 (comment
 
+  'Taraxacum
+
   (print-cause-trace *e)
 
   ; test that a blade * its dual is the pseudoscalar
@@ -54,14 +56,19 @@
 
 (comment
 
-
+  ; other ways to represent numbers
 
 :e3/+0.7
 
-'e3/+0.7
+'e3/+0.7e22
+
+'e0.0.7e-2
+
+:0.7e-8e0
 
 
 ; how to manage high dimensional algebras ? 131010
+; symbolically - only use the blades needed by the computation
 (count (bases-of (+ 17 0 0)))
 
 ; Algebra(0,1,()=>(3+2e1)*(1+4e1));
@@ -90,6 +97,9 @@
       (take 8
         (iterate (partial ⍣ (m (rpi 8.0) (p 0.0 3.0)))
           (p 1.0 1.0)))))
+
+
+  (print-cause-trace *e)
 
   (in-ga 3 0 0
     (qr ga

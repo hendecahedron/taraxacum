@@ -1,4 +1,4 @@
-(ns ^{:doc "Geometric Algebra (first sketch)"
+(ns ^{:doc "Geometric Algebra (first sketch) Taraxacum"
       :author "Matthew Chadwick"}
   abl.ajr.core
   (:require
@@ -17,12 +17,22 @@
 
 (defrecord Blade [bitmap scale grade])
 
+; Java's method reimplemented for CLJS
+(defn bit-count [i]
+  (let [i (- i (b& (b>> i 1) 0x5555555555555555))
+        i (+ (b& i 0x3333333333333333) (b& (b>> i 2) 0x3333333333333333))
+        i (b& (+ i (b>> i 4)) 0x0f0f0f0f0f0f0f0f)
+        i (+ i (b>> i 8))
+        i (+ i (b>> i 16))
+        i (+ i (b>> i 32))
+        ]
+    (b& i 0x7f)))
+
 ; grade is the number of factors, or elements
 ; which have been wedged together - also the
 ; dimensionality of the subspace represented
 ; by the k-blade/vector
-(defn grade [bits]
-  (Long/bitCount bits))
+(def grade bit-count)
 
 ; make a blade. 'G' is like a circle with an arrow
 ; which is like the circular bivector visualization
@@ -114,7 +124,7 @@
   (->> (b> a 1)
     (iterate (fn [x] (b> x 1)))
     (take-while (fn [x] (> x 0)))
-    (map (fn [x] (Long/bitCount (b& x b))))
+    (map (fn [x] (bit-count (b& x b))))
     (reduce +)))
 
 ; page 514 GA4CS
@@ -236,7 +246,7 @@
      (if (< d (dec n))
        (let [
               vd  (mapv (fn [b i] (if (< i d) (assoc b :scale 0) b)) (r d) (range)) ; dth basis vector, zeroed out up to d
-              ed  [(update (vd d) :scale (fn [x] (let [sn (signum x)] (* -1.0 (if (zero? sn) 1.0 sn)))))]
+              ed  [(update (vd d) :scale (fn [x] (let [sn (signum x)] (* -1.0 (if (== 0 sn) 1.0 sn)))))]
               bi' (+ (⃠ vd) ed)                         ; bisector of unit v and ei
               bi  (if (seq bi') bi' ed)                 ; if v is ei then bisector will be empty
               hy  (∼ bi)                                ; reflection hyperplane
@@ -245,7 +255,7 @@
             ]
          (recur n (inc d)
            (mapv (fn [f x] (f x)) qs' r)
-           (comp q qd) ; todo use associativity of sandwich product to compose these
+           (comp q qd)
            qs'))
        {:q (mapv (fn [v] (basis-range (q v) 0 n)) (imv mvs))
         :qfn (fn [mvs] (mapv (fn [v] (basis-range (q v) 0 n)) mvs))
@@ -680,7 +690,6 @@
                  :else f))
                body)))))
 
-; abl-ajr   al-jabr
 
 (defmethod print-method Blade [{:keys [basis scale]} writer]
   (doto writer
