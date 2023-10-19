@@ -15,7 +15,7 @@
 (def b¬ bit-not)
 (def b⊻ bit-xor)
 
-(defrecord Blade [bitmap scale grade])
+(defrecord Basis [bitmap scale grade name])
 
 ; Java's method reimplemented for CLJS
 (defn bit-count [i]
@@ -31,46 +31,44 @@
 ; grade is the number of factors, or elements
 ; which have been wedged together - also the
 ; dimensionality of the subspace represented
-; by the k-blade/vector
+; by the k-basis/vector
 (def grade bit-count)
 
-; make a blade. 'G' is like a circle with an arrow
+; make a basis. 'G' is like a circle with an arrow
 ; which is like the circular bivector visualization
 ; in GA4CS, and 'G' is also for Geometric Number
 (defn G
-  ([basis scale]
-    (G {} basis scale))
-  ([ga basis scale]
-    (let [b (or (:bitmap basis) basis)]
-      (assoc (Blade. b scale (grade b))
-        :basis
-        (or (get-in ga [:basis-by-bitmap b])
-          (:basis basis))))))
+  ([from scale]
+    (G {} (or (:bitmap from) from) scale (:name from)))
+  ([ga bitmap scale]
+    (Basis. bitmap scale (grade bitmap) (get-in ga [:basis-by-bitmap bitmap])))
+  ([ga bitmap scale name]
+    (Basis. bitmap scale (grade bitmap) name)))
 
 (defn multivector [{basis :basis :as ga} elements]
   (mapv
-    (fn [[co bb]]
-      (G (get basis bb bb) co))
+    (fn [[co b]]
+      (G (get basis b b) co))
     (partition 2 elements)))
 
-(defn edalb [{:keys [scale grade] :as blade}]
+(defn <-- [{:keys [scale grade] :as basis}]
   (let [n (* 0.5 grade (dec grade))
         r (if (== 0 n) 1.0 (last (take n (cycle [-1.0 1.0]))))]
-    (G blade (*' scale r))))
+    (G basis (*' scale r))))
 
 (defn <- [multivector]
-  (mapv edalb multivector))
+  (mapv <-- multivector))
 
-(defn involute [{:keys [scale grade] :as blade}]
-  (G blade (* scale (pow -1 grade))))
+(defn involute [{:keys [scale grade] :as basis}]
+  (G basis (* scale (pow -1 grade))))
 
 (defn <_
   ([ga mv] (<_ mv))
   ([multivector]
     (mapv involute multivector)))
 
-(defn negate [{:keys [scale grade] :as blade}]
-  (G blade (* scale -1N)))
+(defn negate [{:keys [scale grade] :as basis}]
+  (G basis (* scale -1N)))
 
 ; also called conjugation
 (defn negate-mv
@@ -82,8 +80,9 @@
         [{s :scale}] (• r r)]
      (if s
        (* r [(G S (/ 1N s))])
-       (throw (ex-info (str "non-invertable multivector ["
-                         (string/join " " (map (fn [{:keys [scale basis]}] (str scale basis)) mv)) "]") {:non-invertable mv})))))
+       (throw
+         (ex-info (str "non-invertable multivector ["
+           (string/join " " (map (fn [{:keys [scale name]}] (str scale name)) mv)) "]") {:non-invertable mv})))))
 
 (defn length
   ([{{:syms [•]} :ops :as ga} mv]
@@ -112,11 +111,9 @@
      (reduce
        (fn [r components]
          (let [n (symbol (str prefix (string/join "" (map (fn [[i]] (+ start i)) components))))]
-          (assoc r n
-            (assoc (G (reduce b⊻ (map (comp :bitmap last) components)) 1.0)
-              :basis n))))
-       {(symbol (str prefix "_")) (assoc (G 0 1.0) :basis (symbol (str prefix "_")))}
-       (let [b (map (fn [i] [i (symbol (str prefix i)) (G (b< 1 i) 1.0)]) (range n))]
+          (assoc r n (G {} (reduce b⊻ (map (comp :bitmap last) components)) 1.0 n))))
+       {(symbol (str prefix "_")) (G {} 0 1.0 (symbol (str prefix "_")))}
+       (let [b (map (fn [i] (let [n (symbol (str prefix i))] [i n (G {}  (b< 1 i) 1.0 n)])) (range n))]
           (mapcat (fn [k] (x/combinations b k))
             (range 1 (inc n)))))))
 
@@ -134,10 +131,10 @@
 (defn <=grade [max]
   (filter (fn [{g :grade}] (<= g max))))
 
-(defn consolidate-blades [ga]
+(defn consolidate-basis [ga]
   (comp
     (partition-by :bitmap)
-    (map (fn [[fb :as blades]] (G ga fb (reduce + (map :scale blades)))))))
+    (map (fn [[fb :as basis]] (G fb (reduce + (map :scale basis)))))))
 
 (def int-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (- bg ag)))))
 (def ext-xf (filter (fn [[{ag :grade} {bg :grade} {pg :grade}]] (== pg (+ ag bg)))))
@@ -155,7 +152,7 @@
 
 (defn consolidate&remove0s [ga]
   (comp
-    (consolidate-blades ga)
+    (consolidate-basis ga)
     remove0s))
 
 (defn consolidate [mv]
@@ -229,7 +226,7 @@
          [a b (* a b)]))))
 
 (defn basis-range
-  "select blades having basis in range f t "
+  "select bases having basis in range f t "
   [mv f t]
   (vec (filter
          (fn [{b :bitmap}]
@@ -276,11 +273,11 @@
 ; will need to be identity
 (defn ->basis
   "Change of basis. Based on the GA4CS reference impl"
-  ([{basis :eigenvectors mmga :mmga :as ga} blade]
-    (->basis mmga basis blade))
+  ([{basis :eigenvectors mmga :mmga :as ga} basis]
+    (->basis mmga basis basis))
   ([{[e_] :basis-by-grade bbb :basis-in-order
     {* '* ∧ '∧ *- '*- •∧ '•∧} :ops :as ga}
-    metric-mvs {:keys [bitmap scale] :as blade}]
+    metric-mvs {:keys [bitmap scale] :as basis}]
    (loop [r [(G e_ scale)] i 0 b bitmap]
      (if (== b 0)
        r
@@ -322,19 +319,20 @@
           dependency (if (and meet (zero? meet)) :independent :dependent)
           ag (if (vector? a) :grades (min 1 (or (:grade a) 0)))
           bg (if (vector? b) :grades (min 1 (or (:grade b) 0)))
-          ta (cond (number? a) :number (:bitmap a) :blade (vector? a) :multivector)
-          tb (cond (number? b) :number (:bitmap b) :blade (vector? b) :multivector)
+          ta (cond (number? a) :number (:bitmap a) :basis (vector? a) :multivector)
+          tb (cond (number? b) :number (:bitmap b) :basis (vector? b) :multivector)
           ]
        [op dependency ta tb ag bg]))
    ([op ga a]
     (cond
       (seq? a) [op :multivectors]
       (vector? a) [op :multivector]
+      (:grade a) [op :basis]
       :else [op (type a)])))
 
 (defn ga-ops []
   {
-   [:no-such-op :independent :blade :blade 0 0]
+   [:no-such-op :independent :basis :basis 0 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
@@ -342,24 +340,24 @@
    (fn g* [ga a b]
      (* a b))
 
-   ['* :independent :blade :blade 0 0]
+   ['* :independent :basis :basis 0 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :independent :blade :blade 0 1]
+   ['* :independent :basis :basis 0 1]
    (fn g* [ga a b]
      (update b :scale * (:scale a)))
 
-   ['* :independent :blade :blade 1 0]
+   ['* :independent :basis :basis 1 0]
    (fn g* [ga a b]
      (update a :scale * (:scale b)))
 
-   ['* :independent :blade :blade 1 1]
+   ['* :independent :basis :basis 1 1]
    (fn g* [ga {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (* (canonical-order bma bmb) va vb)))
 
-   ['* :dependent :blade :blade 1 1]
+   ['* :dependent :basis :basis 1 1]
    (fn g* [{metric :metric :as ga} {bma :bitmap va :scale :as a} {bmb :bitmap vb :scale :as b}]
      (G ga (b⊻ bma bmb)
        (loop [i 0 m (b& (:bitmap a) (:bitmap b))
@@ -478,6 +476,10 @@
    ['⁻ :multivector]
    inverse
 
+   ^{:doc "Inverse"}
+   ['⁻ :basis]
+   (fn [ga b] (<-- b))
+
    ^{:doc "Negate"}
    ['- :multivector]
    negate-mv
@@ -497,7 +499,7 @@
          (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s))) mv))
 
    ^{:doc "Dual"}
-   ['∼ Blade]
+   ['∼ Basis]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
      (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s)))
 
@@ -507,9 +509,9 @@
      (* (<- mv) [I]))
 
    ^{:doc "Hodge dual ★"}
-   ['★ Blade]
+   ['★ Basis]
    (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} x]
-     (* (edalb x) I))
+     (* (<-- x) I))
 
    ^{:doc "Normalize"}
    ['⃠ :multivector]
@@ -522,7 +524,7 @@
   [{b :basis-by-grade bio :basis-in-order md :metric :as ga}]
   (let [
         I (peek b)
-        I- (edalb I)
+        I- (<-- I)
         S (first b)
         ]
     (assoc ga :specials
@@ -538,7 +540,7 @@
   (assoc ga :duals-
     (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals))))
 
-(defn compare-blades [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
+(defn compare-basis [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
   (if (== ag bg)
     (compare ab bb)
     (compare ag bg)))
@@ -579,7 +581,7 @@
          d (+ p q r)
          bases (bases-of prefix base d)
          bio (reduce (fn [r [n b]] (assoc r (:bitmap b) b)) (vec (repeat (count bases) 0)) bases)
-         bbg (vec (sort compare-blades (vals bases)))
+         bbg (vec (sort compare-basis (vals bases)))
          zv (vec (repeat (count bases) 0))
          m {
             :p p :q q :r r
@@ -636,7 +638,7 @@
       (and (vector? f) (every? (fn [[c b]] (and (or (number? c) (list? c)) (symbol? b))) (partition 2 f))))
     (== 0 (mod (count f) 2))))
 
-(defn bladelike [x]
+(defn basislike [x]
   (if (symbol? x)
     (let [basis (namespace x) n (name x)]
       (try {:basis (symbol basis) :scale (parse-double n)}
@@ -645,7 +647,7 @@
 
 (defn multivector1? [f]
   (and (list? f)
-    (every? (fn [x] (bladelike x)) f)))
+    (every? (fn [x] (basislike x)) f)))
 
 ; TODO: function names beginning with 'e' don't work
 (defmacro in-ga
@@ -665,7 +667,7 @@
          s (filter symbol? (tree-seq seqable? seq body))
          e (vec (cons (symbol (str prefix "_")) (filter (fn [i] (or (starts-with? (name i) prefix)
                                                                   (and (namespace i) (starts-with? (namespace i) prefix)))) s)))
-         e (mapv (fn [x] (if-let [{b :basis} (bladelike x)] b x)) e)
+         e (mapv (fn [x] (if-let [{b :basis} (basislike x)] b x)) e)
            ]
        `(let [{{:syms ~e :as ~'basis} :basis
                {:syms ~ops} :ops
@@ -685,14 +687,14 @@
                    (mapv (fn [x] (let [{b :basis c :scale}
                                        (if (number? x)
                                          `{:basis ~(symbol (str prefix "_")) :scale ~x}
-                                         (bladelike x))]
+                                         (basislike x))]
                                    `(G ~b ~c))) f)
                  :else f))
                body)))))
 
 
-(defmethod print-method Blade [{:keys [basis scale]} writer]
+(defmethod print-method Basis [{:keys [name scale]} writer]
   (doto writer
     (.write (str scale))
     (.write " ")
-    (.write (str basis))))
+    (.write (str name))))
