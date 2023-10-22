@@ -677,7 +677,7 @@
                ~'basis :basis
                ~'duals :duals
                ~'duals- :duals-
-               {:syms ~specials} :specials :as ~'ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
+               {:syms ~specials} :specials :as ~'-ga} (ga {:prefix ~prefix :base ~base :p ~p :q ~q :r ~r :mm ~mm :pqr ~pqr})]
           ~(w/postwalk
              (fn [f]
                (cond
