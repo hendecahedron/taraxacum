@@ -13,6 +13,7 @@ This library is an experimental work in progress from my notes taken while learn
 
 ### Use
 
+`hendecahedron/taraxacum {:git/url "https://github.com/hendecahedron/taraxacum.git" :sha "0b6fab772eb5577069c2b1eabfa9fa9e62f60066"` in your `deps.edn`
 
 Basis elements are of type`Basis`which represents oriented volumes of space
 
