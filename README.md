@@ -21,7 +21,7 @@ Basis elements are of type`Basis`which represents oriented volumes of space
 
 Taraxacum defaults to an unconventional 0-based indexing for bases, so null vectors start at p, but one can use the conventional 1-based indexing too.
 
-Multivectors are linear combinations of bases and are the general objects used in GA computations. Multivectors are represented with (Clojure) vectors of bases or vectors of coefficients and bases
+Multivectors are linear combinations of bases and are the general objects used in GA computations. Multivectors are represented with vectors of bases or vectors of coefficients and bases
 
 The macro `in-ga` evaluates GA expressions in the context of a given GA, e.g.
 
