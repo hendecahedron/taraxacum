@@ -456,7 +456,7 @@
            (simplify r)))))
 
    ^{:doc "Sandwich product"}
-   ['🥪 :dependent :multivector :multivector :grades :grades]
+   ['⍣ :dependent :multivector :multivector :grades :grades]
    sandwich
 
    ^{:doc "Inverse"}
