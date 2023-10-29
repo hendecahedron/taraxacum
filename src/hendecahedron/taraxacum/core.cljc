@@ -68,7 +68,7 @@
     (mapv involute multivector)))
 
 (defn negate [{:keys [scale grade] :as basis}]
-  (G basis (* scale -1N)))
+  (G basis (* scale -1)))
 
 ; also called conjugation
 (defn negate-mv
@@ -79,7 +79,7 @@
   (let [r (<- mv)
         [{s :scale}] (• r r)]
      (if s
-       (* r [(G S (/ 1N s))])
+       (* r [(G S (/ 1 s))])
        (throw
          (ex-info (str "non-invertable multivector ["
            (string/join " " (map (fn [{:keys [scale name]}] (str scale name)) mv)) "]") {:non-invertable mv})))))
@@ -124,12 +124,14 @@
     (map (fn [x] (bit-count (b& x b))))
     (reduce +)))
 
+(defn compare-basis [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
+  (if (== ag bg)
+    (compare ab bb)
+    (compare ag bg)))
+
 ; page 514 GA4CS
 (defn canonical-order [a b]
   (if (== 0 (b& (bit-flips a b) 1)) +1.0 -1.0))
-
-(defn <=grade [max]
-  (filter (fn [{g :grade}] (<= g max))))
 
 (defn consolidate-basis [ga]
   (comp
@@ -162,15 +164,14 @@
         (update r bitmap (fn [x] (if x (update x :scale + scale) b))))
       {} mv)))
 
-(defn simplify- [xf mv]
-  (into [] xf mv))
-
 (defn simplify
-  ([ga mv]
+  ([mv]
    (into [] remove0s (consolidate mv))))
 
-(defn simplify0 [ga mv]
-  (consolidate mv))
+(defn as-map
+  "return the multivector as a map"
+  [mv]
+  (into {} (map (juxt :name :scale) mv)))
 
 (defn <>
   "return the multivector by grade"
@@ -191,7 +192,7 @@
 (defn ⌋
   {:doc "Left contraction" :ref "§2.2.4 eq 2.6 IPOGA"}
   [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
-  (simplify-
+  (into []
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- bg ag))))
       (map peek)
@@ -201,7 +202,7 @@
 (defn ⌊
   {:doc "Right contraction" :ref "§2.2.4 eq 2.7 IPOGA"}
   [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
-  (simplify-
+  (into []
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- ag bg))))
       (map peek)
@@ -210,7 +211,7 @@
 
 ; left contraction or inner product §3.5.3
 (defn ⌋• [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
-  (simplify ga
+  (simplify
     (map
        (fn [[{ag :grade :as a} {bg :grade :as b} {g :grade :as p}]]
          (if (== g (abs (- bg ag))) p (G e_ 0)))
@@ -282,7 +283,7 @@
   ([{basis :eigenvectors mmga :mmga :as ga} basis]
     (->basis mmga basis basis))
   ([{[e_] :basis-by-grade bbb :basis-in-order
-    {* '* ∧ '∧ *- '*- •∧ '•∧} :ops :as ga}
+    {* '* ∧ '∧ *- '*-} :ops :as ga}
     metric-mvs {:keys [bitmap scale] :as basis}]
    (loop [r [(G e_ scale)] i 0 b bitmap]
      (if (== b 0)
@@ -382,7 +383,7 @@
    ^{:doc "Geometric product" :e.g. '(* [1 v1 2 v2] [3 v0 4 v2])}
    ['* :dependent :multivector :multivector :grades :grades]
    (fn g* [{{* '*} :ops :as ga} mva mvb]
-     (simplify ga (for [a mva b mvb] (* ga a b))))
+     (simplify (for [a mva b mvb] (* ga a b))))
 
    ^{:doc "unsimplified Geometric product"}
    ['*- :dependent :multivector :multivector :grades :grades]
@@ -392,29 +393,22 @@
    ^{:doc "simplified Geometric product keep zeros"}
    ['*0 :dependent :multivector :multivector :grades :grades]
    (fn g*0 [{{* '*} :ops :as ga} a b]
-     (simplify0 ga (for [a a b b] (* a b))))
-
-   ^{:doc "Interior and exterior products"}
-   ['•∧ :dependent :multivector :multivector :grades :grades]
-   (fn ip [{{:syms [*'']} :ops :as ga} mva mvb]
-     (let [gp (*'' mva mvb)]
-       {:• (into [] remove0s (consolidate (simplify- (comp int-xf (map peek)) gp)))
-        :∧ (into [] remove0s (consolidate (simplify- (comp ext-xf (map peek)) gp)))}))
+     (consolidate (for [a a b b] (* a b))))
 
    ^{:doc "Interior product ·"}
    ['⌋• :dependent :multivector :multivector :grades :grades]
-   (fn left-contraction [{{:syms [•∧]} :ops :as ga} a b]
+   (fn left-contraction [ga a b]
      (⌋• ga a b))
 
    ^{:doc "Interior product"}
    ['• :dependent :multivector :multivector :grades :grades]
-   (fn ip [{{:syms [•∧]} :ops :as ga} a b]
-     (:• (•∧ a b)))
+   (fn ip [{{:syms [*'']} :ops :as ga} a b]
+     (simplify (sequence (comp int-xf (map peek)) (*'' a b))))
 
    ^{:doc "Exterior product or meet, largest common subspace, intersection"}
    ['∧ :dependent :multivector :multivector :grades :grades]
-   (fn ∧ [{{:syms [•∧]} :ops :as ga} a b]
-     (:∧ (•∧ a b)))
+   (fn ∧ [{{:syms [*'']} :ops :as ga} a b]
+     (simplify (sequence (comp ext-xf (map peek)) (*'' a b))))
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
@@ -426,13 +420,13 @@
      :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent :multivector :multivector :grades :grades]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
-     (simplify ga (∼ (∧ (∼ b) (∼ a)))))
+     (simplify (∼ (∧ (∼ b) (∼ a)))))
 
    ; remove this impl
    ^{:doc "remove"}
    ['∨ :multivectors]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} mvs]
-     (let [r (simplify ga (∼ (reduce ∧ (map ∼ mvs))))]
+     (let [r (simplify (∼ (reduce ∧ (map ∼ mvs))))]
        (if (odd? (count mvs))
          r
          (mapv (fn [b] (update b :scale * -1)) r))))
@@ -447,7 +441,7 @@
      :ascii '+ :short 'sum :verbose 'sum :gs '+}
    ['+ :dependent :multivector :multivector :grades :grades]
    (fn g+ [ga a b]
-     (simplify ga (into a b)))
+     (simplify (into a b)))
 
    ^{:doc "Sum, bisect 2 planes, bisect 2 normalized lines"
      :ascii '+ :short 'sum :verbose 'sum :gs '+}
@@ -463,7 +457,7 @@
            scale (loop [s (if (> max 1) (b< 1 1) 1) m max]
                    (if (> m 1) (recur (b< s 1) (/ m 2)) s))
            scaled (* a [(G G_ (/ 1 scale))])
-           r (simplify ga (reduce
+           r (simplify (reduce
                             (fn exp1 [r i]
                               (into r (* [(peek r)] (* scaled [(G G_ (/ 1 i))]))))
                             [G_] (range 1 16)))
@@ -471,7 +465,7 @@
        (loop [r r s scale]
          (if (> s 1)
            (recur (* r r) (b>> s 1))
-           (simplify ga r)))))
+           (simplify r)))))
 
    ^{:doc "Sandwich product"}
    ['|*| :dependent :multivector :multivector :grades :grades]
@@ -545,11 +539,6 @@
   (assoc ga :duals-
     (into {} (map (fn [[a b]] [a (:scale (* ga a b))]) duals))))
 
-(defn compare-basis [{ag :grade ab :bitmap :as a} {bg :grade bb :bitmap :as b}]
-  (if (== ag bg)
-    (compare ab bb)
-    (compare ag bg)))
-
 (defn with-help [{ops :ops :as a-ga}]
   (-> a-ga
     (assoc :help
@@ -602,7 +591,7 @@
             :ops (ga-ops)
             }
          ; note ops must be in order of dependence because of the partial later
-         ops '[+ * ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ 𝑒 op]
+         ops '[+ * ⍣ - _ *'' *- *0 • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ 𝑒 op]
          ]
      (ga- m ops)))
   ([m ops]
@@ -665,7 +654,7 @@
   ([{:keys [prefix base p q r mm pqr] :or {base 0 prefix 'e pqr [:p :q :r]}} body]
    (let [
          prefix (name prefix)
-         ops '[+ * 𝑒 ⍣ - _ *'' *- *0 •∧ • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ op]
+         ops '[+ * 𝑒 ⍣ - _ *'' *- *0 • •' ⁻ ∧ ∼ ∨ ∨' h∨ ★ ⃠ op]
          specials '[I I- S]
          opz (into #{} ops)
          o (complement opz)
