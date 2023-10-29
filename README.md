@@ -70,7 +70,7 @@ My first implementation of this used multimethods, then I rewrote it using an ex
 
 #### GA Input Source / Keyboard Layout
 
-This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for macOS -- I used Ukele to create one and mapped a key to switch sources. For Linux, there'll be a way to do it.
+This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for MacOS -- I used [Ukelele](https://software.sil.org/ukelele/) to create one and mapped a key to switch sources (System Settings>Keyboard>Shortcuts>Input Sources). For Linux, there'll be a way to do it.
 
 #### Next
 
@@ -78,7 +78,7 @@ Speed - this implementation isn't slow but it's not optimised either
 
 Symbolic implementation - the problem with floats is you get tiny elements as a result of non-cancallations which I currently filter out but a symbolic version would deal with this. I have tried using rationals instead but they're much slower.
 
-
+Tests - I know I should add some tests. I'm using this for my other projects so it gets tested by being used but it ought really to have some tests nonetheless.
 
 #### References:
 
