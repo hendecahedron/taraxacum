@@ -185,13 +185,13 @@
 
 (defn **
   {:doc ""}
-  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  [{{:syms [*]} :ops :as ga} mva mvb]
   (for [a mva b mvb]
     [a b (* a b)]))
 
 (defn ⌋
   {:doc "Left contraction" :ref "§2.2.4 eq 2.6 IPOGA"}
-  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  [{{:syms [*]} :ops :as ga} mva mvb]
   (into []
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- bg ag))))
@@ -201,7 +201,7 @@
 
 (defn ⌊
   {:doc "Right contraction" :ref "§2.2.4 eq 2.7 IPOGA"}
-  [{{:syms [*]} :ops [e_] :basis-by-grade :as ga} mva mvb]
+  [{{:syms [*]} :ops :as ga} mva mvb]
   (into []
     (comp
       (filter (fn [[{ag :grade} {bg :grade} {g :grade}]] (== g (- ag bg))))
@@ -239,8 +239,8 @@
 (defn point [{{:syms [∼ ∨]} :ops bbg :basis-by-grade {z0 'z0} :specials :as ga} components]
   (∼ (into (mapv (fn [p b] (G b p)) components (rest bbg)) [z0])))
 
-(defn sandwich [{{:syms [* - ⁻]} :ops :as ga} h x]
-  (* (- h) x (⁻ h)))
+(defn sandwich [{{:syms [* - ⁻]} :ops :as ga} a x]
+  (* (- a) x (⁻ a)))
 
 (defn qr
   "a GA implementation of QR decomposition by Householder reflection"
@@ -278,6 +278,7 @@
 
 ; this will use the metric of the given GA so that
 ; will need to be identity
+; this is completely untested
 (defn ->basis
   "Change of basis. Based on the GA4CS reference impl"
   ([{basis :eigenvectors mmga :mmga :as ga} basis]
