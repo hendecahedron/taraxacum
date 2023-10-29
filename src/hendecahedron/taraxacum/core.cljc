@@ -412,12 +412,6 @@
 
    ^{:doc "Regressive product or join, smallest common superspace, union"
      :note "Gunn arXiv:1501.06511v8 §3.1"}
-   ['∨' :dependent :multivector :multivector :grades :grades]
-   (fn ∨' [{{:syms [* • ∼]} :ops :as ga} a b]
-     (∼ (* (∼ a) (∼ b))))
-
-   ^{:doc "Regressive product or join, smallest common superspace, union"
-     :note "Gunn arXiv:1501.06511v8 §3.1"}
    ['∨ :dependent :multivector :multivector :grades :grades]
    (fn ∨ [{{:syms [∧ ∼]} :ops {:keys [I I-]} :specials :as ga} a b]
      (simplify (∼ (∧ (∼ b) (∼ a)))))
@@ -430,12 +424,6 @@
        (if (odd? (count mvs))
          r
          (mapv (fn [b] (update b :scale * -1)) r))))
-
-   ^{:doc ""}
-   ['h∨ :dependent :multivector :multivector :grades :grades]
-   (fn h∨ [{{:syms [* • ∼]} :ops :as ga} a b]
-     ; Hestenes (13) defines ∨ as (• (∼ a) b) which doesn't give the same result
-     (• (∼ a) b))
 
    ^{:doc "Sum, bisect 2 planes, bisect 2 normalized lines"
      :ascii '+ :short 'sum :verbose 'sum :gs '+}
@@ -468,7 +456,7 @@
            (simplify r)))))
 
    ^{:doc "Sandwich product"}
-   ['|*| :dependent :multivector :multivector :grades :grades]
+   ['🥪 :dependent :multivector :multivector :grades :grades]
    sandwich
 
    ^{:doc "Inverse"}
@@ -490,7 +478,6 @@
    ^{:doc "Dual"}
    ['∼ :multivector]
    (fn dual [{{• '•} :ops duals :duals ds :duals- :as ga} mv]
-     ; (⌋ ga a [I-])
      (mapv
        (fn dual-component [{bm :bitmap s :scale :as a}]
          (when (nil? (duals (G a 1.0)))
@@ -501,16 +488,6 @@
    ['∼ Basis]
    (fn dual [{{⌋ '⌋ • '•} :ops duals :duals ds :duals- :as ga} {bm :bitmap s :scale :as a}]
      (assoc (duals (G a 1.0)) :scale (* (ds (G a 1.0)) s)))
-
-   ^{:doc "Hodge dual ★"}
-   ['★ :multivector]
-   (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} mv]
-     (* (<- mv) [I]))
-
-   ^{:doc "Hodge dual ★"}
-   ['★ Basis]
-   (fn hodge [{{* '*} :ops {I 'I} :specials :as ga} x]
-     (* (<-- x) I))
 
    ^{:doc "Normalize"}
    ['⃠ :multivector]
