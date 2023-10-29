@@ -1,6 +1,6 @@
 # Taraxacum
 
-This library is an experimental work in progress from my notes taken while learning Geometric Algebra. At this stage it has the core GA functions in Euclidean metric:
+This library is an experimental work in progress from my notes taken while learning Geometric Algebra. At this stage it has the core GA functions:
 ```
   * geometric product
   • interior product
@@ -21,7 +21,7 @@ Basis elements are of type`Basis`which represents oriented volumes of space
 
 Taraxacum defaults to an unconventional 0-based indexing for bases, so null vectors start at p, but one can use the conventional 1-based indexing too.
 
-Multivectors are linear combinations of bases and are the general objects used in GA computations. Multivectors are represented with vectors of bases or vectors of coefficients and bases
+Multivectors are linear combinations of bases and are the general objects used in GA expressions. Multivectors are represented with vectors of bases or vectors of coefficients and bases
 
 The macro `in-ga` evaluates GA expressions in the context of a given GA, e.g.
 
@@ -34,12 +34,12 @@ The macro `in-ga` evaluates GA expressions in the context of a given GA, e.g.
 returns the intersection of two planes. `(in-ga p q r body)` evaluates the body in the context of a GA of the specified metric.
 
 
-This multivector representation only works inside the macro `in-ga`, otherwise use `(G basis scale)` to make a vector of bases.
+This multivector representation only works inside the macro `in-ga`, otherwise use `(G basis scale)` and make a vector of bases.
 
 
 One can also create an algebra with `ga` e.g. `(let [ga3d (ga 3 0 1)])` for 3d PGA, or `(ga prefix p q r)` where `p q r` is the metric signature: `p` number dimensions squaring to +1, `q` number dimensions squaring to -1 and `r` number dimensions squaring to 0.
 
-This algebra is a map containing the basis elements and operations for computing with multivectors
+This algebra is a map containing the basis elements and operations for working with multivectors
 
 `(:basis ga3d)` is a map of basis elements
 
@@ -48,6 +48,8 @@ This algebra is a map containing the basis elements and operations for computing
 `(:ops ga3d)` is a map of operations for that GA
 
 `(let [{{:syms [* + - • ∨ ∧ ⁻ ∼]} :ops} ga3d])` the main GA operations
+
+other keys: `:help` help, & `:specials` various distinguished objects of the algebra like **I**
 
 
 
@@ -68,7 +70,14 @@ My first implementation of this used multimethods, then I rewrote it using an ex
 
 #### GA Input Source / Keyboard Layout
 
-This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for macOS -- I used Ukele to create one and mapped the a key to switch sources. For Linux, there'll be a way to do it.
+This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input source is needed for macOS -- I used Ukele to create one and mapped a key to switch sources. For Linux, there'll be a way to do it.
+
+#### Next
+
+Speed - this implementation isn't slow but it's not optimised either
+
+Symbolic implementation - the problem with floats is you get tiny elements as a result of non-cancallations which I currently filter out but a symbolic version would deal with this. I have tried using rationals instead but they're much slower.
+
 
 
 #### References:

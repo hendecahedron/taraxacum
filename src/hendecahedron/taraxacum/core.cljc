@@ -235,6 +235,12 @@
 (defn imv [mvs]
   (mapv (fn [i mv] (mapv (fn [j e] (G e (if (== i j) 1 0))) (range) mv)) (range) mvs))
 
+(defn point [{{:syms [∼ ∨]} :ops bbg :basis-by-grade {z0 'z0} :specials :as ga} components]
+  (∼ (into (mapv (fn [p b] (G b p)) components (rest bbg)) [z0])))
+
+(defn sandwich [{{:syms [* - ⁻]} :ops :as ga} h x]
+  (* (- h) x (⁻ h)))
+
 (defn qr
   "a GA implementation of QR decomposition by Householder reflection"
   ([{{:syms [+ - ⁻ * *- *0 • ∧ V ∼ • ⍣ ⃠]} :ops
@@ -468,9 +474,8 @@
            (simplify ga r)))))
 
    ^{:doc "Sandwich product"}
-   ['⍣ :dependent :multivector :multivector :grades :grades]
-   (fn |*| [{{* '*} :ops :as ga} r mv]
-     (reduce * [r mv (<- r)]))
+   ['|*| :dependent :multivector :multivector :grades :grades]
+   sandwich
 
    ^{:doc "Inverse"}
    ['⁻ :multivector]
