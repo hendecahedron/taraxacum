@@ -1,4 +1,4 @@
-# Tar-axa⁻¹cum 
+# Taraxacum 
 
 This is an experimental Geometric Algebra library
 
