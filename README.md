@@ -83,7 +83,7 @@ This library uses the symbols `• ∼ 𝑒 ⍣ ∧ ∨` so a GA-specific input 
 
 Speed - this implementation isn't slow but it's not optimised either
 
-Symbolic implementation - the problem with floats is you get tiny elements as a result of non-cancellations which I currently filter out but a symbolic version would deal with this. I have tried using rationals instead but they're much slower.
+Symbolic implementation - the problem with floats is you get tiny elements as a result of near-cancellations which I currently filter out but a symbolic version would deal with this. I have tried using rationals instead but they're much slower.
 
 Tests - I know I should add some tests. I'm using this for my other projects so it gets tested by being used but it ought really to have some tests nonetheless.
 
