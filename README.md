@@ -1,15 +1,6 @@
 # Taraxacum
 
-This library is an experimental work in progress from my notes taken while learning Geometric Algebra. At this stage it has the core GA functions:
-```
-  * geometric product
-  • interior product
-  ∧ exterior product
-  ∼ dual
-  ∨ regressive product    
-  𝑒 exponential
-```   
-
+This is an experimental Geometric Algebra library
 
 ### Use
 
@@ -47,7 +38,21 @@ This algebra is a map containing the basis elements and operations for working w
 
 `(:ops ga3d)` is a map of operations for that GA
 
-`(let [{{:syms [* + - • ∨ ∧ ⁻ ∼]} :ops} ga3d])` the main GA operations
+`(let [{{:syms [* + - • ∨ ∧ ⁻ ∼ 𝑒]} :ops} ga3d])` the main GA operations:
+
+```
+  * geometric product
+  • interior product
+  ∧ exterior product
+  ∼ dual
+  ∨ regressive product    
+  𝑒 exponential
+  - negate
+  + bisection
+  ⁻ invert
+```
+
+
 
 other keys: `:help` help, & `:specials` various distinguished objects of the algebra like **I**
 
@@ -64,7 +69,9 @@ Experimental and definitely going to change, however I'm using the current versi
 
 #### Notes
 
-I changed the name of this library from abl-ajr to Taraxacum which is also a corruption of the original Arabic, and dandelion is a corruption of the original French.
+This library is the result of my notes taken while learning GA, which I'm still learning.
+
+I changed the name from abl-ajr to Taraxacum which is also a corruption of the original Arabic, and dandelion is a corruption of the original French.
 
 My first implementation of this used multimethods, then I rewrote it using an experimental dispatch system and I'll probably rewrite it again.
 
